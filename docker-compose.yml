@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  openprime-backend:
+    build: .
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+      - PYTHON_PATH=/usr/bin/python3
+    volumes:
+      - ./src:/app/src
+      - ./python:/app/python
+      - ./logs:/app/logs
+    depends_on:
+      - postgres
+      - redis
+
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: openprime
+      POSTGRES_USER: openprime
+      POSTGRES_PASSWORD: openprime_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+volumes:
+  postgres_data:
