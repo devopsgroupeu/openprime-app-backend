@@ -58,8 +58,11 @@ app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' });
 });
 
-app.listen(PORT, () => {
-  logger.info(`OpenPrime Backend running on port ${PORT}`);
-});
+// Only start server if this file is run directly (not imported)
+if (require.main === module) {
+  app.listen(PORT, () => {
+    logger.info(`OpenPrime Backend running on port ${PORT}`);
+  });
+}
 
 module.exports = app;
