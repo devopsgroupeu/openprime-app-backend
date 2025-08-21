@@ -1,5 +1,5 @@
 // src/services/terraformService.js
-const { logger } = require('../utils/logger');
+// const { logger } = require('../utils/logger'); // Available for future use
 const yaml = require('js-yaml');
 
 class TerraformService {

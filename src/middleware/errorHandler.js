@@ -1,7 +1,7 @@
 // src/middleware/errorHandler.js
 const { logger } = require('../utils/logger');
 
-exports.errorHandler = (err, req, res, next) => {
+exports.errorHandler = (err, req, res, _next) => {
   logger.error('Error:', err);
   
   // Validation errors

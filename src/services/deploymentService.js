@@ -122,7 +122,7 @@ class DeploymentService {
     return rollbackDeployment;
   }
 
-  async getDeploymentMetrics(id, options = {}) {
+  async getDeploymentMetrics(id, _options = {}) {
     const deployment = this.deployments.get(id);
     if (!deployment) {
       throw new Error('Deployment not found');

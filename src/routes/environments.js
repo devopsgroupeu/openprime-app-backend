@@ -1,7 +1,7 @@
 // src/routes/environments.js
 const express = require('express');
 const router = express.Router();
-const { body, validationResult } = require('express-validator');
+// const { body, validationResult } = require('express-validator'); // Available for future use
 const environmentController = require('../controllers/environmentController');
 const { validateEnvironment } = require('../validators/environmentValidator');
 

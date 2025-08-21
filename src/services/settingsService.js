@@ -142,7 +142,7 @@ class SettingsService {
     };
   }
 
-  async testCloudConnection(provider) {
+  async testCloudConnection(_provider) {
     // In production, this would actually test the connection
     // For now, simulate a successful connection
     return {
