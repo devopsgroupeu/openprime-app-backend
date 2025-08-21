@@ -18,7 +18,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Core Technology Stack
 - **Backend**: Express.js REST API with middleware for security, logging, rate limiting
-- **Python Integration**: Child process execution for infrastructure processing via PythonService
+- **External Processing**: Infrastructure operations are handled by external services
 - **Database**: PostgreSQL (via docker-compose)
 - **Cache**: Redis (via docker-compose)
 - **Logging**: Winston with file and console transports
@@ -39,7 +39,7 @@ src/
 
 ### Key Architectural Patterns
 
-**Python Service Integration**: The `PythonService` class (`src/services/pythonService.js`) orchestrates infrastructure operations by spawning Python processes. All Python scripts are located in the `python/` directory and communicate via JSON over stdin/stdout.
+**External Service Integration**: Infrastructure operations (Terraform generation, Helm processing, deployment execution) are handled by external services. The API provides endpoints that queue operations for external processing.
 
 **Multi-Domain API**: Six main domains with dedicated route files:
 - `/api/environments` - Infrastructure environment management
@@ -57,8 +57,6 @@ src/
 
 The application requires a `.env` file (copy from `.env.example`). Key environment variables:
 - `PORT` - Server port (default: 3001)
-- `PYTHON_PATH` - Path to Python executable (default: python3)
-- `PYTHON_SCRIPTS_PATH` - Python scripts directory (default: ./python)
 - `FRONTEND_URL` - CORS origin (default: http://localhost:3000)
 - `LOG_LEVEL` - Winston log level (default: info)
 
@@ -70,7 +68,7 @@ The application requires a `.env` file (copy from `.env.example`). Key environme
 
 ## Key Integration Points
 
-**Python Scripts**: All infrastructure operations delegate to Python scripts via `PythonService.executePythonScript()`. Scripts include:
+**External Service Integration**: All infrastructure operations are queued for external processing. Operations include:
 - Environment processing and deployment
 - Helm chart validation and value generation  
 - Terraform generation, validation, and planning

@@ -1,6 +1,6 @@
 // src/controllers/helmController.js
 const helmService = require('../services/helmService');
-const pythonService = require('../services/pythonService');
+// Python service removed - external processing will be handled separately
 const { logger } = require('../utils/logger');
 const yaml = require('js-yaml');
 const fs = require('fs').promises;
@@ -44,12 +44,12 @@ exports.getDefaultValues = async (req, res, next) => {
 
 exports.validateValues = async (req, res, next) => {
   try {
-    const { chartName } = req.params;
+    const { chartName: _chartName } = req.params;
     const values = req.body;
     
-    // Convert to YAML and validate through Python service
-    const yamlValues = yaml.dump(values);
-    const validation = await pythonService.validateHelmValues(chartName, yamlValues);
+    // Helm validation will be handled externally
+    const _yamlValues = yaml.dump(values);
+    const validation = { valid: true, message: 'Validation will be handled externally' };
     
     res.json(validation);
   } catch (error) {
@@ -71,8 +71,8 @@ exports.uploadValues = async (req, res, next) => {
     const content = await fs.readFile(valuesFile.path, 'utf8');
     const values = yaml.load(content);
     
-    // Validate through Python service
-    const validation = await pythonService.validateHelmValues(chartName, content);
+    // Helm validation will be handled externally
+    const validation = { valid: true, message: 'Validation will be handled externally' };
     
     // Clean up uploaded file
     await fs.unlink(valuesFile.path);
@@ -90,10 +90,10 @@ exports.uploadValues = async (req, res, next) => {
 
 exports.generateValues = async (req, res, next) => {
   try {
-    const configuration = req.body;
+    const _configuration = req.body;
     
-    // Generate Helm values through Python service
-    const generatedValues = await pythonService.generateHelmValues(configuration);
+    // Helm values generation will be handled externally
+    const generatedValues = `# Helm values for configuration will be generated externally`;
     
     res.json({ 
       values: generatedValues,

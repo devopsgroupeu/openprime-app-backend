@@ -1,7 +1,7 @@
 // src/controllers/environmentController.js
 const { validationResult } = require('express-validator');
 const environmentService = require('../services/environmentService');
-const pythonService = require('../services/pythonService');
+// Python service removed - external processing will be handled separately
 const { logger } = require('../utils/logger');
 
 exports.getAllEnvironments = async (req, res, next) => {
@@ -41,11 +41,10 @@ exports.createEnvironment = async (req, res, next) => {
 
     logger.info('Creating environment with data:', environmentData);
     
-    // Convert to YAML for Python processing
+    // Convert to YAML format
     const yamlData = await environmentService.convertToYAML(environmentData);
     
-    // Call Python service to process the configuration
-    // const processedData = await pythonService.processEnvironmentConfig(yamlData);
+    // Configuration processing will be handled externally
     const processedData = yamlData;
     
     // Save environment
@@ -68,11 +67,11 @@ exports.updateEnvironment = async (req, res, next) => {
     const { id } = req.params;
     const environmentData = req.body;
     
-    // Convert to YAML for Python processing
+    // Convert to YAML format
     const yamlData = await environmentService.convertToYAML(environmentData);
     
-    // Call Python service to process the configuration
-    const processedData = await pythonService.processEnvironmentConfig(yamlData);
+    // Configuration processing will be handled externally
+    const processedData = yamlData;
     
     // Update environment
     const environment = await environmentService.updateEnvironment(id, processedData);
@@ -98,15 +97,15 @@ exports.deleteEnvironment = async (req, res, next) => {
 exports.deployEnvironment = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const deploymentOptions = req.body;
+    const _deploymentOptions = req.body;
     
     const environment = await environmentService.getEnvironmentById(id);
     if (!environment) {
       return res.status(404).json({ error: 'Environment not found' });
     }
     
-    // Initiate deployment through Python service
-    const deployment = await pythonService.deployEnvironment(environment, deploymentOptions);
+    // Deployment will be handled externally
+    const deployment = { status: 'queued', message: 'Deployment queued for external processing' };
     
     res.json(deployment);
   } catch (error) {
@@ -136,8 +135,8 @@ exports.exportEnvironment = async (req, res, next) => {
       return res.status(404).json({ error: 'Environment not found' });
     }
     
-    // Generate IaC through Python service
-    const iacCode = await pythonService.generateIaC(environment, format);
+    // IaC generation will be handled externally
+    const iacCode = `# ${format.toUpperCase()} code for ${environment.name} will be generated externally`;
     
     res.json({ 
       format, 

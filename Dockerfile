@@ -12,14 +12,12 @@ RUN npm ci --include=dev
 
 # Copy source code
 COPY src/ ./src/
-COPY python/ ./python/
 
 # Production stage
 FROM node:24.5.0-alpine AS production
 
-# Install Python for processing service
-RUN apk add --no-cache python3 py3-pip \
-    && addgroup -g 1001 -S nodejs \
+# Create user and group
+RUN addgroup -g 1001 -S nodejs \
     && adduser -S nodejs -u 1001
 
 WORKDIR /app
@@ -32,7 +30,6 @@ RUN npm ci --only=production && npm cache clean --force
 
 # Copy application files from builder stage
 COPY --from=builder /app/src ./src
-COPY --from=builder /app/python ./python
 
 # Create directories with proper permissions
 RUN mkdir -p logs uploads/helm \

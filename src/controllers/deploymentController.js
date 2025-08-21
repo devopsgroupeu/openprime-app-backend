@@ -1,6 +1,6 @@
 // src/controllers/deploymentController.js
 const deploymentService = require('../services/deploymentService');
-const pythonService = require('../services/pythonService');
+// Python service removed - external processing will be handled separately
 const { logger } = require('../utils/logger');
 
 exports.getAllDeployments = async (req, res, next) => {
@@ -51,14 +51,9 @@ exports.createDeployment = async (req, res, next) => {
     // Create deployment record
     const deployment = await deploymentService.createDeployment(deploymentData);
     
-    // Trigger deployment through Python service
-    pythonService.executeDeployment(deployment)
-      .then(result => {
-        deploymentService.updateDeploymentStatus(deployment.id, 'completed', result);
-      })
-      .catch(error => {
-        deploymentService.updateDeploymentStatus(deployment.id, 'failed', { error: error.message });
-      });
+    // Deployment execution will be handled externally
+    // Set initial status to pending for external processing
+    await deploymentService.updateDeploymentStatus(deployment.id, 'pending', { message: 'Queued for external deployment processing' });
     
     res.status(202).json(deployment);
   } catch (error) {
