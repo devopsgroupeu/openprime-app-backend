@@ -28,7 +28,7 @@ async function chat(req, res, next) {
       console.error("AI streaming error:", err);
       // Fallback message in case the AI model cannot be reached
       send({
-        chunk: "Sorry, Aura AI couldn't connect to the model. Please try again later."
+        chunk: "⚠️ Sorry, Aura AI couldn't connect to the model. Please try again later."
       });
       send({ done: true });
     }
