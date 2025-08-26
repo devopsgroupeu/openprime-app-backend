@@ -18,7 +18,7 @@ async function chat(req, res, next) {
     const send = (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
 
     try {
-      await streamChat({ messages }, (chunk, meta) => {
+      await streamChat({ messages, topic: req.body.topic}, (chunk, meta) => {
         // Send each text chunk as it arrives
         if (chunk) send({ chunk });
         // If streaming is done, send a "done" flag

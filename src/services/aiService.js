@@ -1,63 +1,86 @@
 // src/services/aiService.js
+const { systemInstructionText } = require("../utils/aiModelInstructions");
 const { BedrockRuntimeClient, ConverseStreamCommand, ConverseCommand } = require("@aws-sdk/client-bedrock-runtime");
 
-// Initialize Bedrock client with AWS region (default to us-east-1 if not set)
 const client = new BedrockRuntimeClient({
   region: process.env.AWS_REGION || "us-east-1",
+  apiKey: process.env.BEDROCK_API_KEY,
 });
 
 const MODEL_ID = process.env.BEDROCK_INFERENCE_PROFILE_ARN;
 
-// Helper function to convert frontend messages to the format Bedrock expects
-function toBedrockMessages(messages) {
-  // Put style instruction as a pseudo-user message
+// Convert frontend messages to Bedrock format with system instructions + topic
+function toBedrockMessages(messages, topic) {
+  const topicContext = topic
+    ? `\n\nContext for this conversation: Focus only on **${topic}**.
+      Answer with best practices, common issues, security, and cost optimization for ${topic}.`
+    : "";
+
   const systemInstruction = {
     role: "user",
-    content: [{ text: "You are a helpful AI assistant. Keep responses concise (1–2 sentences). Use simple language unless asked for detail." }]
+    content: [{ text: `${systemInstructionText}${topicContext}` }]
   };
 
   const userAndAssistantMsgs = messages.map(m => ({
     role: m.type === "user" ? "user" : "assistant",
-    content: [{ text: m.message }]
+    content: [{ text: m.content || m.message }]
   }));
 
   return [systemInstruction, ...userAndAssistantMsgs];
 }
 
+// Retry wrapper with exponential backoff
+async function sendWithRetry(cmd, maxRetries = 5) {
+  let delay = 500; // start with 500ms
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await client.send(cmd);
+    } catch (err) {
+      if (err.name === 'ThrottlingException') {
+        console.warn(`Throttled by Bedrock. Retry #${attempt + 1} in ${delay}ms`);
+        await new Promise(res => setTimeout(res, delay));
+        delay *= 2; // exponential backoff
+      } else {
+        throw err;
+      }
+    }
+  }
+  throw new Error('Max retries reached due to throttling.');
+}
 
-// Main function to handle chat
-async function streamChat({ messages }, onChunk) {
-  const bedrockMessages = toBedrockMessages(messages);
+// Main function to handle chat with optional topic
+async function streamChat({ messages, topic }, onChunk) {
+  const bedrockMessages = toBedrockMessages(messages, topic);
 
   try {
     const cmd = new ConverseStreamCommand({
       modelId: MODEL_ID,
       messages: bedrockMessages,
-      inferenceConfig: { 
-        maxTokens: 200,  // maximum tokens to generate
-        temperature: 0.2, // randomness in output (low = more deterministic)
-        topP: 0.9         // nucleus sampling parameter
-    }
+      inferenceConfig: {
+        maxTokens: 200,
+        temperature: 0.2,
+        topP: 0.9
+      }
     });
 
-    const res = await client.send(cmd);
+    const res = await sendWithRetry(cmd);
 
     for await (const event of res.stream) {
       if (event.contentBlockDelta?.delta?.text) {
         onChunk(event.contentBlockDelta.delta.text);
       }
     }
+    onChunk('', { done: true });
   } catch (err) {
-    // Fallback: if streaming fails, use normal non-streaming API
+    console.error("Streaming failed, falling back to non-streaming:", err.message);
     const cmd = new ConverseCommand({
       modelId: MODEL_ID,
       messages: bedrockMessages,
       inferenceConfig: { maxTokens: 200, temperature: 0.2, topP: 0.9 }
     });
-    const res = await client.send(cmd);
-    // Extract full text from response
+
+    const res = await sendWithRetry(cmd);
     const text = res?.output?.message?.content?.map(c => c.text).join("") || "";
-    // Send the full response via callback and indicate done
     onChunk(text, { done: true });
   }
 }
