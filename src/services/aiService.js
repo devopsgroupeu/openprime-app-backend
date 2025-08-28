@@ -56,27 +56,30 @@ async function streamChat({ messages, topic }, onChunk) {
     const cmd = new ConverseStreamCommand({
       modelId: MODEL_ID,
       messages: bedrockMessages,
-      inferenceConfig: {
-        maxTokens: 200,
-        temperature: 0.2,
-        topP: 0.9
-      }
+      inferenceConfig: { maxTokens: 400, temperature: 0.2, topP: 0.9 }
     });
 
     const res = await sendWithRetry(cmd);
 
+    let buffer = "";
+
     for await (const event of res.stream) {
       if (event.contentBlockDelta?.delta?.text) {
-        onChunk(event.contentBlockDelta.delta.text);
+        const text = event.contentBlockDelta.delta.text;
+        buffer += text;
+        onChunk(text); // stream live as before
       }
     }
-    onChunk('', { done: true });
+
+    // ✅ flush the complete message so you never end mid-sentence
+    onChunk(buffer, { done: true });
+
   } catch (err) {
-    console.error("Streaming failed, falling back to non-streaming:", err.message);
+    console.error("Streaming failed, fallback to non-streaming:", err.message);
     const cmd = new ConverseCommand({
       modelId: MODEL_ID,
       messages: bedrockMessages,
-      inferenceConfig: { maxTokens: 200, temperature: 0.2, topP: 0.9 }
+      inferenceConfig: { maxTokens: 400, temperature: 0.2, topP: 0.9 }
     });
 
     const res = await sendWithRetry(cmd);
