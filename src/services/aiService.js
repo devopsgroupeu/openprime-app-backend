@@ -31,7 +31,7 @@ function toBedrockMessages(messages, topic) {
 
 // Retry wrapper with exponential backoff
 async function sendWithRetry(cmd, maxRetries = 5) {
-  let delay = 500; // start with 500ms
+  let delay = 500; 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       return await client.send(cmd);
@@ -39,7 +39,7 @@ async function sendWithRetry(cmd, maxRetries = 5) {
       if (err.name === 'ThrottlingException') {
         console.warn(`Throttled by Bedrock. Retry #${attempt + 1} in ${delay}ms`);
         await new Promise(res => setTimeout(res, delay));
-        delay *= 2; // exponential backoff
+        delay *= 2; 
       } else {
         throw err;
       }
@@ -67,12 +67,11 @@ async function streamChat({ messages, topic }, onChunk) {
       if (event.contentBlockDelta?.delta?.text) {
         const text = event.contentBlockDelta.delta.text;
         buffer += text;
-        onChunk(text); // stream live as before
+        //onChunk(text); 
       }
     }
 
-    // ✅ flush the complete message so you never end mid-sentence
-    onChunk(buffer, { done: true });
+  onChunk(buffer, { done: true });
 
   } catch (err) {
     console.error("Streaming failed, fallback to non-streaming:", err.message);
