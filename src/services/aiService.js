@@ -4,7 +4,6 @@ const { BedrockRuntimeClient, ConverseStreamCommand, ConverseCommand } = require
 
 const client = new BedrockRuntimeClient({
   region: process.env.AWS_REGION || "us-east-1",
-  apiKey: process.env.BEDROCK_API_KEY,
 });
 
 const MODEL_ID = process.env.BEDROCK_INFERENCE_PROFILE_ARN;
@@ -67,7 +66,6 @@ async function streamChat({ messages, topic }, onChunk) {
       if (event.contentBlockDelta?.delta?.text) {
         const text = event.contentBlockDelta.delta.text;
         buffer += text;
-        //onChunk(text); 
       }
     }
 
