@@ -1,15 +1,20 @@
 // src/controllers/environmentController.js
 const { validationResult } = require('express-validator');
 const environmentService = require('../services/environmentService');
-// Python service removed - external processing will be handled separately
+const userService = require('../services/userService');
 const { logger } = require('../utils/logger');
 
-exports.getAllEnvironments = async (req, res, next) => {
+exports.getUserEnvironments = async (req, res, next) => {
   try {
-    const environments = await environmentService.getAllEnvironments();
+    let user = await userService.getUserByKeycloakId(req.user.id);
+    if (!user) {
+      user = await userService.findOrCreateUser(req.user);
+    }
+
+    const environments = await environmentService.getUserEnvironments(user.id);
     res.json(environments);
   } catch (error) {
-    logger.error('Error fetching environments:', error);
+    logger.error('Error getting user environments:', error);
     next(error);
   }
 };
@@ -17,38 +22,50 @@ exports.getAllEnvironments = async (req, res, next) => {
 exports.getEnvironment = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const environment = await environmentService.getEnvironmentById(id);
-    
+    let user = await userService.getUserByKeycloakId(req.user.id);
+    if (!user) {
+      user = await userService.findOrCreateUser(req.user);
+    }
+
+    const environment = await environmentService.getEnvironmentByIdAndUser(id, user.id);
     if (!environment) {
       return res.status(404).json({ error: 'Environment not found' });
     }
-    
+
     res.json(environment);
   } catch (error) {
-    logger.error('Error fetching environment:', error);
+    logger.error('Error getting environment:', error);
     next(error);
   }
 };
 
 exports.createEnvironment = async (req, res, next) => {
   try {
+    logger.info('Environment creation request body:', req.body);
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      logger.error('Validation errors:', errors.array());
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const environmentData = req.body;
+    let user = await userService.getUserByKeycloakId(req.user.id);
+    if (!user) {
+      user = await userService.findOrCreateUser(req.user);
+    }
 
-    logger.info('Creating environment with data:', environmentData);
+    const environmentData = {
+      ...req.body,
+      user_id: user.id
+    };
+
+    logger.info('Creating environment for user:', user.username);
     
-    // Convert to YAML format
+    // Convert to YAML format for logging/processing
     const yamlData = await environmentService.convertToYAML(environmentData);
+    logger.info('Environment YAML:', yamlData);
     
-    // Configuration processing will be handled externally
-    const processedData = yamlData;
-    
-    // Save environment
-    const environment = await environmentService.createEnvironment(processedData);
+    // Save environment with original data
+    const environment = await environmentService.createEnvironment(environmentData);
     
     res.status(201).json(environment);
   } catch (error) {
@@ -65,17 +82,16 @@ exports.updateEnvironment = async (req, res, next) => {
     }
 
     const { id } = req.params;
-    const environmentData = req.body;
-    
-    // Convert to YAML format
-    const yamlData = await environmentService.convertToYAML(environmentData);
-    
-    // Configuration processing will be handled externally
-    const processedData = yamlData;
-    
-    // Update environment
-    const environment = await environmentService.updateEnvironment(id, processedData);
-    
+    let user = await userService.getUserByKeycloakId(req.user.id);
+    if (!user) {
+      user = await userService.findOrCreateUser(req.user);
+    }
+
+    const environment = await environmentService.updateEnvironmentByUser(id, user.id, req.body);
+    if (!environment) {
+      return res.status(404).json({ error: 'Environment not found' });
+    }
+
     res.json(environment);
   } catch (error) {
     logger.error('Error updating environment:', error);
@@ -86,65 +102,19 @@ exports.updateEnvironment = async (req, res, next) => {
 exports.deleteEnvironment = async (req, res, next) => {
   try {
     const { id } = req.params;
-    await environmentService.deleteEnvironment(id);
-    res.status(204).send();
+    let user = await userService.getUserByKeycloakId(req.user.id);
+    if (!user) {
+      user = await userService.findOrCreateUser(req.user);
+    }
+
+    const deleted = await environmentService.deleteEnvironmentByUser(id, user.id);
+    if (!deleted) {
+      return res.status(404).json({ error: 'Environment not found' });
+    }
+
+    res.json({ message: 'Environment deleted successfully' });
   } catch (error) {
     logger.error('Error deleting environment:', error);
-    next(error);
-  }
-};
-
-exports.deployEnvironment = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const _deploymentOptions = req.body;
-    
-    const environment = await environmentService.getEnvironmentById(id);
-    if (!environment) {
-      return res.status(404).json({ error: 'Environment not found' });
-    }
-    
-    // Deployment will be handled externally
-    const deployment = { status: 'queued', message: 'Deployment queued for external processing' };
-    
-    res.json(deployment);
-  } catch (error) {
-    logger.error('Error deploying environment:', error);
-    next(error);
-  }
-};
-
-exports.getEnvironmentStatus = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const status = await environmentService.getEnvironmentStatus(id);
-    res.json(status);
-  } catch (error) {
-    logger.error('Error fetching environment status:', error);
-    next(error);
-  }
-};
-
-exports.exportEnvironment = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const { format = 'terraform' } = req.query;
-    
-    const environment = await environmentService.getEnvironmentById(id);
-    if (!environment) {
-      return res.status(404).json({ error: 'Environment not found' });
-    }
-    
-    // IaC generation will be handled externally
-    const iacCode = `# ${format.toUpperCase()} code for ${environment.name} will be generated externally`;
-    
-    res.json({ 
-      format, 
-      code: iacCode,
-      filename: `${environment.name}-${format}.zip`
-    });
-  } catch (error) {
-    logger.error('Error exporting environment:', error);
     next(error);
   }
 };

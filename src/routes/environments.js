@@ -1,38 +1,26 @@
 // src/routes/environments.js
 const express = require('express');
 const router = express.Router();
-// const { body, validationResult } = require('express-validator'); // Available for future use
 const environmentController = require('../controllers/environmentController');
 const { validateEnvironment } = require('../validators/environmentValidator');
+const { authenticateToken } = require('../middleware/auth');
 
-// Get all environments
-router.get('/', environmentController.getAllEnvironments);
+router.get('/', authenticateToken, environmentController.getUserEnvironments);
 
-// Get specific environment
-router.get('/:id', environmentController.getEnvironment);
+router.get('/:id', authenticateToken, environmentController.getEnvironment);
 
-// Create new environment
 router.post('/', 
+  authenticateToken,
   validateEnvironment,
   environmentController.createEnvironment
 );
 
-// Update environment
 router.put('/:id',
+  authenticateToken,
   validateEnvironment,
   environmentController.updateEnvironment
 );
 
-// Delete environment
-router.delete('/:id', environmentController.deleteEnvironment);
-
-// Deploy environment
-router.post('/:id/deploy', environmentController.deployEnvironment);
-
-// Get environment status
-router.get('/:id/status', environmentController.getEnvironmentStatus);
-
-// Export environment as IaC
-router.get('/:id/export', environmentController.exportEnvironment);
+router.delete('/:id', authenticateToken, environmentController.deleteEnvironment);
 
 module.exports = router;

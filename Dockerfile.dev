@@ -1,0 +1,32 @@
+# Development Dockerfile for OpenPrime Backend
+FROM node:24.5.0-alpine
+
+# Set working directory
+WORKDIR /app
+
+# Create nodejs user
+RUN addgroup -g 1001 -S nodejs \
+    && adduser -S nodejs -u 1001
+
+# Copy package files
+COPY package*.json ./
+
+# Install all dependencies including dev dependencies
+RUN npm ci --include=dev && npm cache clean --force
+
+# Create necessary directories
+RUN mkdir -p logs uploads/helm \
+    && chown -R nodejs:nodejs /app
+
+# Switch to non-root user
+USER nodejs
+
+# Expose port and debug port
+EXPOSE 3001 9229
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD node -e "require('http').get('http://localhost:3001/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"
+
+# Default development command (overridden by docker-compose)
+CMD ["npm", "run", "dev"]

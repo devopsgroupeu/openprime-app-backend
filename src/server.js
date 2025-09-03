@@ -10,6 +10,7 @@ require('dotenv').config();
 const { errorHandler } = require('./middleware/errorHandler');
 const { logger } = require('./utils/logger');
 const routes = require('./routes');
+const { initializeDatabase, closeConnection } = require('./config/database');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -58,11 +59,47 @@ app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' });
 });
 
+// Initialize database and start server
+async function startServer() {
+  try {
+    // Initialize database connection and models
+    await initializeDatabase();
+    logger.info('Database initialized successfully');
+    
+    // Start the server
+    const server = app.listen(PORT, () => {
+      logger.info(`OpenPrime Backend running on port ${PORT}`);
+      logger.info('Database: PostgreSQL connected and ready');
+    });
+
+    // Graceful shutdown
+    process.on('SIGTERM', async () => {
+      logger.info('SIGTERM received, shutting down gracefully');
+      server.close(async () => {
+        await closeConnection();
+        logger.info('Process terminated');
+        process.exit(0);
+      });
+    });
+
+    process.on('SIGINT', async () => {
+      logger.info('SIGINT received, shutting down gracefully');
+      server.close(async () => {
+        await closeConnection();
+        logger.info('Process terminated');
+        process.exit(0);
+      });
+    });
+
+  } catch (error) {
+    logger.error('Failed to start server:', error);
+    process.exit(1);
+  }
+}
+
 // Only start server if this file is run directly (not imported)
 if (require.main === module) {
-  app.listen(PORT, () => {
-    logger.info(`OpenPrime Backend running on port ${PORT}`);
-  });
+  startServer();
 }
 
 module.exports = app;

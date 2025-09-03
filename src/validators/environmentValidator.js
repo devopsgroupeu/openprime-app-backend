@@ -6,9 +6,9 @@ exports.validateEnvironment = [
     .notEmpty().withMessage('Environment name is required')
     .isLength({ min: 2, max: 50 }).withMessage('Name must be between 2 and 50 characters'),
   
-  body('type')
-    .notEmpty().withMessage('Environment type is required')
-    .isIn(['aws', 'azure', 'gcp', 'onpremise']).withMessage('Invalid environment type'),
+  body('provider')
+    .notEmpty().withMessage('Environment provider is required')
+    .isIn(['aws', 'azure', 'gcp', 'onpremise']).withMessage('Invalid environment provider'),
   
   body('region')
     .optional()

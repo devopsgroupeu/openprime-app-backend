@@ -1,62 +1,113 @@
 // src/services/environmentService.js
 const yaml = require('js-yaml');
-const { v4: uuidv4 } = require('uuid');
 const { logger } = require('../utils/logger');
+const { Environment } = require('../models');
 
 class EnvironmentService {
-  constructor() {
-    // In production, this would use a database
-    this.environments = new Map();
-  }
-
-  async getAllEnvironments() {
-    return Array.from(this.environments.values());
-  }
-
-  async getEnvironmentById(id) {
-    return this.environments.get(id);
-  }
-
   async createEnvironment(data) {
-    const id = uuidv4();
-    const environment = {
-      id,
-      ...data,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      status: 'pending'
-    };
-    
-    this.environments.set(id, environment);
-    logger.info(`Environment created: ${id}`);
-    
-    return environment;
+    try {
+      const environmentData = {
+        name: data.name,
+        provider: data.provider || data.type || 'aws', // Frontend uses 'type', backend expects 'provider'
+        region: data.region || null,
+        location: data.location || data.region || null,
+        status: 'pending',
+        services: data.services || {},
+        user_id: data.user_id || null
+      };
+
+      const environment = await Environment.create(environmentData);
+      logger.info(`Environment created: ${environment.id} for user: ${data.user_id}`);
+      
+      return environment.toJSON();
+    } catch (error) {
+      logger.error('Error creating environment:', error);
+      throw error;
+    }
   }
 
-  async updateEnvironment(id, data) {
-    const existing = this.environments.get(id);
-    if (!existing) {
-      throw new Error('Environment not found');
+  async getUserEnvironments(userId) {
+    try {
+      const environments = await Environment.findAll({
+        where: { user_id: userId },
+        order: [['created_at', 'DESC']]
+      });
+
+      return environments.map(env => env.toJSON());
+    } catch (error) {
+      logger.error('Error getting user environments:', error);
+      throw error;
     }
-    
-    const updated = {
-      ...existing,
-      ...data,
-      updatedAt: new Date().toISOString()
-    };
-    
-    this.environments.set(id, updated);
-    logger.info(`Environment updated: ${id}`);
-    
-    return updated;
   }
 
-  async deleteEnvironment(id) {
-    const deleted = this.environments.delete(id);
-    if (!deleted) {
-      throw new Error('Environment not found');
+  async getEnvironmentByIdAndUser(environmentId, userId) {
+    try {
+      const environment = await Environment.findOne({
+        where: { 
+          id: environmentId,
+          user_id: userId
+        }
+      });
+
+      return environment ? environment.toJSON() : null;
+    } catch (error) {
+      logger.error('Error getting environment by ID and user:', error);
+      throw error;
     }
-    logger.info(`Environment deleted: ${id}`);
+  }
+
+  async updateEnvironmentByUser(environmentId, userId, data) {
+    try {
+      const environment = await Environment.findOne({
+        where: { 
+          id: environmentId,
+          user_id: userId
+        }
+      });
+
+      if (!environment) {
+        return null;
+      }
+
+      const updateData = {
+        name: data.name,
+        provider: data.provider || data.type,
+        region: data.region,
+        location: data.location || data.region,
+        services: data.services
+      };
+
+      await environment.update(updateData);
+      logger.info(`Environment updated: ${environment.id} for user: ${userId}`);
+
+      return environment.toJSON();
+    } catch (error) {
+      logger.error('Error updating environment by user:', error);
+      throw error;
+    }
+  }
+
+  async deleteEnvironmentByUser(environmentId, userId) {
+    try {
+      const environment = await Environment.findOne({
+        where: { 
+          id: environmentId,
+          user_id: userId
+        }
+      });
+
+      if (!environment) {
+        return false;
+      }
+
+      await environment.destroy();
+      logger.info(`Environment deleted: ${environmentId} for user: ${userId}`);
+      
+      return true;
+    } catch (error) {
+      logger.error('Error deleting environment by user:', error);
+      throw error;
+    }
   }
 
   async convertToYAML(data) {
@@ -65,26 +116,6 @@ class EnvironmentService {
       lineWidth: -1,
       noRefs: true
     });
-  }
-
-  async getEnvironmentStatus(id) {
-    const environment = this.environments.get(id);
-    if (!environment) {
-      throw new Error('Environment not found');
-    }
-    
-    // In production, this would check actual infrastructure status
-    return {
-      id,
-      status: environment.status || 'running',
-      health: 'healthy',
-      resources: {
-        vpc: environment.services?.vpc?.enabled ? 'active' : 'inactive',
-        eks: environment.services?.eks?.enabled ? 'active' : 'inactive',
-        rds: environment.services?.rds?.enabled ? 'active' : 'inactive'
-      },
-      lastChecked: new Date().toISOString()
-    };
   }
 }
 
