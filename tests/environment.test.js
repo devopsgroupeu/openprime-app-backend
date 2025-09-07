@@ -7,7 +7,7 @@ describe('Environment API', () => {
     it('should create a new environment', async () => {
       const environmentData = {
         name: 'Test Environment',
-        type: 'aws',
+        provider: 'aws',
         region: 'us-east-1',
         services: {
           vpc: { enabled: true, cidr: '10.0.0.0/16' },
@@ -26,7 +26,7 @@ describe('Environment API', () => {
 
     it('should validate environment data', async () => {
       const invalidData = {
-        type: 'invalid'
+        provider: 'invalid'
       };
 
       const response = await request(app)
