@@ -1,0 +1,22 @@
+apiVersion: v2
+name: openprime-app-backend
+description: OpenPrime Express.js backend API for infrastructure management platform
+type: application
+version: 0.2.0
+appVersion: "0.2.0"
+home: https://github.com/devopsgroupeu/openprime-app-backend
+sources:
+  - https://github.com/devopsgroupeu/openprime-app-backend
+keywords:
+  - infrastructure
+  - kubernetes
+  - express
+  - backend
+  - api
+  - multi-cloud
+maintainers:
+  - name: DevOpsGroup
+    email: support@devopsgroup.eu
+annotations:
+  category: Backend
+  licenses: MIT
