@@ -25,14 +25,17 @@ const logger = winston.createLogger({
   ],
 });
 
-// If not in production, log to console as well
-if (process.env.NODE_ENV !== 'production') {
-  logger.add(new winston.transports.Console({
-    format: winston.format.combine(
-      winston.format.colorize(),
-      winston.format.simple()
-    )
-  }));
+// Add console logging based on CONSOLE_LOGGING env var or if not in production
+// This ensures logs are visible in Kubernetes pods via kubectl logs
+const shouldLogToConsole = process.env.CONSOLE_LOGGING !== 'false' && 
+  (process.env.NODE_ENV !== 'production' || process.env.CONSOLE_LOGGING === 'true');
+
+if (shouldLogToConsole) {
+  const consoleFormat = process.env.NODE_ENV === 'production' 
+    ? winston.format.combine(winston.format.timestamp(), winston.format.simple())
+    : winston.format.combine(winston.format.colorize(), winston.format.simple());
+    
+  logger.add(new winston.transports.Console({ format: consoleFormat }));
 }
 
 // Stream for Morgan
