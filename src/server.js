@@ -15,6 +15,9 @@ const { initializeDatabase, closeConnection } = require('./config/database');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Trust proxy when running behind ingress/load balancer
+app.set('trust proxy', true);
+
 // Security middleware
 app.use(helmet());
 app.use(cors({
