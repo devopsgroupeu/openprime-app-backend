@@ -17,7 +17,9 @@ const client = jwksClient({
   cache: true,
   rateLimit: true,
   jwksRequestsPerMinute: 10,
-  jwksRequestTimeout: 30000
+  jwksRequestTimeout: 30000,
+  requestAgent: process.env.NODE_TLS_REJECT_UNAUTHORIZED === '0' ? 
+    require('https').Agent({ rejectUnauthorized: false }) : undefined
 });
 
 function getKey(header, callback) {
@@ -56,7 +58,7 @@ const authenticateToken = async (req, res, next) => {
 
     jwt.verify(token, getKey, {
       audience: 'account', // Keycloak uses 'account' as default audience
-      issuer: `http://localhost:8080/realms/${keycloakConfig.realm}`, // Use public URL that matches JWT
+      issuer: `${keycloakConfig.serverUrl}/realms/${keycloakConfig.realm}`, // Use actual Keycloak URL
       algorithms: ['RS256']
     }, (err, decoded) => {
       if (err) {
