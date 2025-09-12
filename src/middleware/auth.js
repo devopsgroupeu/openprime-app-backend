@@ -57,7 +57,7 @@ const authenticateToken = async (req, res, next) => {
     }
 
     jwt.verify(token, getKey, {
-      audience: 'account', // Keycloak uses 'account' as default audience
+      // Skip audience validation for public client - Keycloak doesn't set audience for public clients
       issuer: `${keycloakConfig.serverUrl}/realms/${keycloakConfig.realm}`, // Use actual Keycloak URL
       algorithms: ['RS256']
     }, (err, decoded) => {
