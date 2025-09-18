@@ -2,9 +2,21 @@ const jwt = require('jsonwebtoken');
 const jwksClient = require('jwks-rsa');
 const { logger } = require('../utils/logger');
 
+// Validate required environment variables
+const requiredEnvVars = ['KEYCLOAK_REALM', 'KEYCLOAK_URL'];
+for (const envVar of requiredEnvVars) {
+  if (!process.env[envVar]) {
+    throw new Error(`Missing required environment variable: ${envVar}`);
+  }
+}
+
 const keycloakConfig = {
-  realm: process.env.KEYCLOAK_REALM || 'openprime',
-  serverUrl: process.env.KEYCLOAK_URL || 'http://localhost:8080',
+  realm: process.env.KEYCLOAK_REALM,
+  serverUrl: process.env.KEYCLOAK_URL,
+  // JWT issuer validation - can be single issuer or comma-separated list
+  allowedIssuers: process.env.KEYCLOAK_JWT_ISSUERS ? 
+    process.env.KEYCLOAK_JWT_ISSUERS.split(',').map(iss => iss.trim()) :
+    [`${process.env.KEYCLOAK_URL}/realms/${process.env.KEYCLOAK_REALM}`]
 };
 
 logger.info('Keycloak configuration:', keycloakConfig);
@@ -51,14 +63,14 @@ const authenticateToken = async (req, res, next) => {
         sub: decoded?.sub,
         client_id: decoded?.azp || decoded?.client_id
       });
-      logger.info('Backend expects issuer:', `${keycloakConfig.serverUrl}/realms/${keycloakConfig.realm}`);
+      logger.info('Backend expects issuers:', keycloakConfig.allowedIssuers);
     } catch (e) {
       logger.error('Failed to decode token for debugging:', e.message);
     }
 
     jwt.verify(token, getKey, {
       // Skip audience validation for public client - Keycloak doesn't set audience for public clients
-      issuer: `${keycloakConfig.serverUrl}/realms/${keycloakConfig.realm}`, // Use actual Keycloak URL
+      issuer: keycloakConfig.allowedIssuers, // Use configurable issuers
       algorithms: ['RS256']
     }, (err, decoded) => {
       if (err) {
