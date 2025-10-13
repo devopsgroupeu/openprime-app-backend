@@ -23,4 +23,6 @@ router.put('/:id',
 
 router.delete('/:id', authenticateToken, environmentController.deleteEnvironment);
 
+router.post('/:id/generate', authenticateToken, environmentController.generateInfrastructure);
+
 module.exports = router;

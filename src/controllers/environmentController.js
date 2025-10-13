@@ -118,3 +118,31 @@ exports.deleteEnvironment = async (req, res, next) => {
     next(error);
   }
 };
+
+exports.generateInfrastructure = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    let user = await userService.getUserByKeycloakId(req.user.id);
+    if (!user) {
+      user = await userService.findOrCreateUser(req.user);
+    }
+
+    const environment = await environmentService.getEnvironmentByIdAndUser(id, user.id);
+    if (!environment) {
+      return res.status(404).json({ error: 'Environment not found' });
+    }
+
+    logger.info(`Generating infrastructure for environment: ${id}`);
+
+    // Call Injecto service to generate infrastructure
+    const zipBuffer = await environmentService.generateInfrastructure(environment);
+
+    // Set response headers for ZIP download
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename=${environment.name}-infrastructure.zip`);
+    res.send(zipBuffer);
+  } catch (error) {
+    logger.error('Error generating infrastructure:', error);
+    next(error);
+  }
+};

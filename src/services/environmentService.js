@@ -1,5 +1,6 @@
 // src/services/environmentService.js
 const yaml = require('js-yaml');
+const axios = require('axios');
 const { logger } = require('../utils/logger');
 const { Environment } = require('../models');
 
@@ -111,11 +112,83 @@ class EnvironmentService {
   }
 
   async convertToYAML(data) {
-    return yaml.dump(data, { 
+    return yaml.dump(data, {
       indent: 2,
       lineWidth: -1,
       noRefs: true
     });
+  }
+
+  async generateInfrastructure(environment) {
+    try {
+      const injectoUrl = process.env.INJECTO_SERVICE_URL || 'http://localhost:8000';
+
+      // Prepare configuration data for Injecto
+      const configData = this.prepareInjectoData(environment);
+
+      logger.info(`Calling Injecto service at ${injectoUrl}/process-git-download`);
+      logger.debug('Configuration data:', JSON.stringify(configData, null, 2));
+
+      // Call Injecto API
+      const response = await axios.post(
+        `${injectoUrl}/process-git-download`,
+        {
+          source: 'git',
+          repo_url: process.env.INFRA_TEMPLATES_REPO_URL || 'https://github.com/DevOpsGroupEU/openprime-infra-templates.git',
+          branch: process.env.INFRA_TEMPLATES_BRANCH || 'main',
+          input_dir: 'templates/',
+          data: configData
+        },
+        {
+          responseType: 'arraybuffer',
+          timeout: 60000, // 60 second timeout
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      logger.info(`Infrastructure generated successfully for environment: ${environment.id}`);
+      return Buffer.from(response.data);
+    } catch (error) {
+      logger.error('Error calling Injecto service:', error.message);
+      if (error.response) {
+        logger.error('Injecto response status:', error.response.status);
+        logger.error('Injecto response data:', error.response.data?.toString() || 'No data');
+      }
+      throw new Error(`Failed to generate infrastructure: ${error.message}`);
+    }
+  }
+
+  prepareInjectoData(environment) {
+    // Transform environment configuration to Injecto-compatible format
+    const data = {
+      environment: {
+        name: environment.name,
+        provider: environment.provider,
+        region: environment.region || environment.location
+      },
+      services: {}
+    };
+
+    // Extract enabled services with their configurations
+    if (environment.services && typeof environment.services === 'object') {
+      Object.entries(environment.services).forEach(([serviceName, serviceConfig]) => {
+        if (serviceConfig && serviceConfig.enabled) {
+          data.services[serviceName] = {
+            enabled: true,
+            ...serviceConfig
+          };
+        }
+      });
+    }
+
+    // Add Helm charts if available
+    if (environment.helmCharts) {
+      data.helmCharts = environment.helmCharts;
+    }
+
+    return data;
   }
 }
 
