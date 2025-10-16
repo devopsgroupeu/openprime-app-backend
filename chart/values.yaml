@@ -119,14 +119,18 @@ app:
     # AWS Configuration (if needed)
     AWS_REGION: "us-east-1"
 
+    # Infrastructure templates repository configuration
+    INFRA_TEMPLATES_REPO_URL: "https://github.com/devopsgroupeu/openprime-infra-templates.git"
+    INFRA_TEMPLATES_BRANCH: "main"
+
   # Secrets (should be provided via external secret management)
   secrets:
     # Database password
     DB_PASSWORD: "openprime123"
-    # AWS credentials (if needed)
-    # AWS_ACCESS_KEY_ID: ""
-    # AWS_SECRET_ACCESS_KEY: ""
-    # BEDROCK_INFERENCE_PROFILE_ARN: ""
+    # AWS credentials for Bedrock AI integration
+    AWS_ACCESS_KEY_ID: "secret"
+    AWS_SECRET_ACCESS_KEY: "secret"
+    BEDROCK_INFERENCE_PROFILE_ARN: "secret"
 
 # Persistent volumes
 persistence:
@@ -142,7 +146,7 @@ persistence:
   logs:
     enabled: true
     storageClass: ""
-    accessMode: ReadWriteOnce
+    accessMode: ReadWriteMany
     size: 2Gi
     mountPath: /app/logs
 
