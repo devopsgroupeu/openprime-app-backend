@@ -48,6 +48,15 @@ const Environment = sequelize.define('Environment', {
     },
     comment: 'User who owns this environment'
   },
+  cloud_credential_id: {
+    type: DataTypes.UUID,
+    allowNull: true,
+    references: {
+      model: 'cloud_credentials',
+      key: 'id'
+    },
+    comment: 'Cloud credentials used for this environment'
+  },
   created_at: {
     type: DataTypes.DATE,
     allowNull: false,

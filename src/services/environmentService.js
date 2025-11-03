@@ -14,12 +14,13 @@ class EnvironmentService {
         location: data.location || data.region || null,
         status: 'pending',
         services: data.services || {},
-        user_id: data.user_id || null
+        user_id: data.user_id || null,
+        cloud_credential_id: data.cloudCredentialId || null
       };
 
       const environment = await Environment.create(environmentData);
       logger.info(`Environment created: ${environment.id} for user: ${data.user_id}`);
-      
+
       return environment.toJSON();
     } catch (error) {
       logger.error('Error creating environment:', error);
@@ -29,8 +30,14 @@ class EnvironmentService {
 
   async getUserEnvironments(userId) {
     try {
+      const { CloudCredential } = require('../models');
       const environments = await Environment.findAll({
         where: { user_id: userId },
+        include: [{
+          model: CloudCredential,
+          as: 'cloudCredential',
+          attributes: ['id', 'name', 'identifier', 'provider']
+        }],
         order: [['created_at', 'DESC']]
       });
 
@@ -43,11 +50,17 @@ class EnvironmentService {
 
   async getEnvironmentByIdAndUser(environmentId, userId) {
     try {
+      const { CloudCredential } = require('../models');
       const environment = await Environment.findOne({
-        where: { 
+        where: {
           id: environmentId,
           user_id: userId
-        }
+        },
+        include: [{
+          model: CloudCredential,
+          as: 'cloudCredential',
+          attributes: ['id', 'name', 'identifier', 'provider']
+        }]
       });
 
       return environment ? environment.toJSON() : null;
@@ -60,7 +73,7 @@ class EnvironmentService {
   async updateEnvironmentByUser(environmentId, userId, data) {
     try {
       const environment = await Environment.findOne({
-        where: { 
+        where: {
           id: environmentId,
           user_id: userId
         }
@@ -75,7 +88,8 @@ class EnvironmentService {
         provider: data.provider || data.type,
         region: data.region,
         location: data.location || data.region,
-        services: data.services
+        services: data.services,
+        cloud_credential_id: data.cloudCredentialId !== undefined ? data.cloudCredentialId : environment.cloud_credential_id
       };
 
       await environment.update(updateData);
