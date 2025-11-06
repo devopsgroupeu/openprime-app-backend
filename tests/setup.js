@@ -32,7 +32,20 @@ jest.mock('../src/config/database', () => ({
   sequelize: {
     authenticate: jest.fn().mockResolvedValue(true),
     sync: jest.fn().mockResolvedValue(true),
-    close: jest.fn().mockResolvedValue(true)
+    close: jest.fn().mockResolvedValue(true),
+    define: jest.fn().mockImplementation(() => {
+      const model = class MockModel {};
+      model.findAll = jest.fn().mockResolvedValue([]);
+      model.findOne = jest.fn().mockResolvedValue(null);
+      model.create = jest.fn().mockImplementation((data) => Promise.resolve({ id: 1, ...data }));
+      model.update = jest.fn().mockResolvedValue([1]);
+      model.destroy = jest.fn().mockResolvedValue(1);
+      model.hasMany = jest.fn().mockReturnValue(model);
+      model.belongsTo = jest.fn().mockReturnValue(model);
+      model.hasOne = jest.fn().mockReturnValue(model);
+      model.belongsToMany = jest.fn().mockReturnValue(model);
+      return model;
+    })
   },
   testConnection: jest.fn().mockResolvedValue(true),
   initializeDatabase: jest.fn().mockResolvedValue(true),
