@@ -25,4 +25,6 @@ router.delete('/:id', authenticateToken, environmentController.deleteEnvironment
 
 router.post('/:id/generate', authenticateToken, environmentController.generateInfrastructure);
 
+router.post('/terraform-backend/create', authenticateToken, environmentController.createTerraformBackend);
+
 module.exports = router;
