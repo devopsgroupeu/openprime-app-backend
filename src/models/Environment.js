@@ -39,6 +39,18 @@ const Environment = sequelize.define('Environment', {
     allowNull: false,
     defaultValue: {}
   },
+  terraform_backend: {
+    type: DataTypes.JSONB,
+    allowNull: true,
+    defaultValue: null,
+    comment: 'Terraform backend configuration (S3, DynamoDB)'
+  },
+  git_repository: {
+    type: DataTypes.JSONB,
+    allowNull: true,
+    defaultValue: null,
+    comment: 'Git repository configuration (URL, SSH key)'
+  },
   user_id: {
     type: DataTypes.UUID,
     allowNull: true,

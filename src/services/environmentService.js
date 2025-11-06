@@ -9,11 +9,13 @@ class EnvironmentService {
     try {
       const environmentData = {
         name: data.name,
-        provider: data.provider || data.type || 'aws', // Frontend uses 'type', backend expects 'provider'
+        provider: data.provider || data.type || 'aws',
         region: data.region || null,
         location: data.location || data.region || null,
         status: 'pending',
         services: data.services || {},
+        terraform_backend: data.terraformBackend || null,
+        git_repository: data.gitRepository || null,
         user_id: data.user_id || null,
         cloud_credential_id: data.cloudCredentialId || null
       };
@@ -89,6 +91,8 @@ class EnvironmentService {
         region: data.region,
         location: data.location || data.region,
         services: data.services,
+        terraform_backend: data.terraformBackend !== undefined ? data.terraformBackend : environment.terraform_backend,
+        git_repository: data.gitRepository !== undefined ? data.gitRepository : environment.git_repository,
         cloud_credential_id: data.cloudCredentialId !== undefined ? data.cloudCredentialId : environment.cloud_credential_id
       };
 
