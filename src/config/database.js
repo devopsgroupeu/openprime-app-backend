@@ -2,13 +2,21 @@
 const { Sequelize } = require('sequelize');
 const { logger } = require('../utils/logger');
 
+// Validate required environment variables
+const requiredEnvVars = ['DB_NAME', 'DB_USER', 'DB_PASSWORD', 'DB_HOST', 'DB_PORT'];
+for (const envVar of requiredEnvVars) {
+  if (!process.env[envVar]) {
+    throw new Error(`Missing required environment variable: ${envVar}`);
+  }
+}
+
 // Database configuration
 const config = {
-  database: process.env.DB_NAME || 'openprime',
-  username: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD || 'postgres',
-  host: process.env.DB_HOST || 'localhost',
-  port: process.env.DB_PORT || 5432,
+  database: process.env.DB_NAME,
+  username: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  host: process.env.DB_HOST,
+  port: parseInt(process.env.DB_PORT, 10),
   dialect: 'postgres',
   logging: process.env.NODE_ENV === 'development' ? (msg) => logger.debug(msg) : false,
   pool: {

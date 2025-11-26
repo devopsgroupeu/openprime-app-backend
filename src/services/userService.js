@@ -28,10 +28,10 @@ class UserService {
         });
       }
 
-      logger.info(`User ${created ? 'created' : 'updated'}: ${user.username}`);
+      logger.info('User synced', { userId: user.id, username: user.username, created });
       return user;
     } catch (error) {
-      logger.error('Error finding/creating user:', error);
+      logger.error('Failed to find/create user', { error: error.message, keycloakId: userData.id });
       throw error;
     }
   }
@@ -41,7 +41,7 @@ class UserService {
       const user = await User.findByPk(id);
       return user;
     } catch (error) {
-      logger.error('Error getting user by ID:', error);
+      logger.error('Failed to get user by ID', { error: error.message, userId: id });
       throw error;
     }
   }
@@ -53,7 +53,7 @@ class UserService {
       });
       return user;
     } catch (error) {
-      logger.error('Error getting user by Keycloak ID:', error);
+      logger.error('Failed to get user by Keycloak ID', { error: error.message, keycloakId });
       throw error;
     }
   }
@@ -71,10 +71,10 @@ class UserService {
       };
 
       await user.update({ preferences: updatedPreferences });
-      logger.info(`Updated preferences for user: ${user.username}`);
+      logger.info('User preferences updated', { userId, username: user.username });
       return user;
     } catch (error) {
-      logger.error('Error updating user preferences:', error);
+      logger.error('Failed to update user preferences', { error: error.message, userId });
       throw error;
     }
   }
@@ -87,10 +87,10 @@ class UserService {
       }
 
       await user.update({ is_active: false });
-      logger.info(`Deactivated user: ${user.username}`);
+      logger.info('User deactivated', { userId, username: user.username });
       return user;
     } catch (error) {
-      logger.error('Error deactivating user:', error);
+      logger.error('Failed to deactivate user', { error: error.message, userId });
       throw error;
     }
   }
@@ -111,7 +111,7 @@ class UserService {
         offset
       };
     } catch (error) {
-      logger.error('Error getting all users:', error);
+      logger.error('Failed to get all users', { error: error.message, limit, offset });
       throw error;
     }
   }

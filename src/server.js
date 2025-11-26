@@ -2,18 +2,26 @@
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
-const morgan = require('morgan');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
 const { errorHandler } = require('./middleware/errorHandler');
+const { requestLogger } = require('./middleware/requestLogger');
 const { logger } = require('./utils/logger');
 const routes = require('./routes');
 const { initializeDatabase, closeConnection } = require('./config/database');
 
+// Validate required environment variables
+const requiredEnvVars = ['PORT', 'FRONTEND_URL'];
+for (const envVar of requiredEnvVars) {
+  if (!process.env[envVar]) {
+    throw new Error(`Missing required environment variable: ${envVar}`);
+  }
+}
+
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT;
 
 // Trust proxy when running behind ingress/load balancer
 app.set('trust proxy', true);
@@ -21,7 +29,7 @@ app.set('trust proxy', true);
 // Security middleware
 app.use(helmet());
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: process.env.FRONTEND_URL,
   credentials: true
 }));
 
@@ -39,8 +47,8 @@ app.use(compression());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// Logging
-app.use(morgan('combined', { stream: logger.stream }));
+// Request logging with correlation ID
+app.use(requestLogger);
 
 // Health check
 app.get('/health', (req, res) => {

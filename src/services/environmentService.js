@@ -4,6 +4,11 @@ const axios = require('axios');
 const { logger } = require('../utils/logger');
 const { Environment } = require('../models');
 
+// Validate required environment variable
+if (!process.env.INJECTO_SERVICE_URL) {
+  throw new Error('Missing required environment variable: INJECTO_SERVICE_URL');
+}
+
 class EnvironmentService {
   async createEnvironment(data) {
     try {
@@ -21,11 +26,11 @@ class EnvironmentService {
       };
 
       const environment = await Environment.create(environmentData);
-      logger.info(`Environment created: ${environment.id} for user: ${data.user_id}`);
+      logger.info('Environment created', { environmentId: environment.id, userId: data.user_id });
 
       return environment.toJSON();
     } catch (error) {
-      logger.error('Error creating environment:', error);
+      logger.error('Failed to create environment', { error: error.message, userId: data.user_id });
       throw error;
     }
   }
@@ -45,7 +50,7 @@ class EnvironmentService {
 
       return environments.map(env => env.toJSON());
     } catch (error) {
-      logger.error('Error getting user environments:', error);
+      logger.error('Failed to get user environments', { error: error.message, userId });
       throw error;
     }
   }
@@ -67,7 +72,7 @@ class EnvironmentService {
 
       return environment ? environment.toJSON() : null;
     } catch (error) {
-      logger.error('Error getting environment by ID and user:', error);
+      logger.error('Failed to get environment', { error: error.message, environmentId, userId });
       throw error;
     }
   }
@@ -97,11 +102,11 @@ class EnvironmentService {
       };
 
       await environment.update(updateData);
-      logger.info(`Environment updated: ${environment.id} for user: ${userId}`);
+      logger.info('Environment updated', { environmentId: environment.id, userId });
 
       return environment.toJSON();
     } catch (error) {
-      logger.error('Error updating environment by user:', error);
+      logger.error('Failed to update environment', { error: error.message, environmentId, userId });
       throw error;
     }
   }
@@ -109,7 +114,7 @@ class EnvironmentService {
   async deleteEnvironmentByUser(environmentId, userId) {
     try {
       const environment = await Environment.findOne({
-        where: { 
+        where: {
           id: environmentId,
           user_id: userId
         }
@@ -120,11 +125,11 @@ class EnvironmentService {
       }
 
       await environment.destroy();
-      logger.info(`Environment deleted: ${environmentId} for user: ${userId}`);
-      
+      logger.info('Environment deleted', { environmentId, userId });
+
       return true;
     } catch (error) {
-      logger.error('Error deleting environment by user:', error);
+      logger.error('Failed to delete environment', { error: error.message, environmentId, userId });
       throw error;
     }
   }
@@ -139,41 +144,42 @@ class EnvironmentService {
 
   async generateInfrastructure(environment) {
     try {
-      const injectoUrl = process.env.INJECTO_SERVICE_URL || 'http://localhost:8000';
+      const injectoUrl = process.env.INJECTO_SERVICE_URL;
 
       // Prepare configuration data for Injecto
       const configData = this.prepareInjectoData(environment);
 
-      logger.info(`Calling Injecto service at ${injectoUrl}/process-git-download`);
-      logger.debug('Configuration data:', JSON.stringify(configData, null, 2));
+      logger.info('Calling Injecto service', { url: `${injectoUrl}/process-git-download`, environmentId: environment.id });
+      logger.debug('Injecto configuration', { data: configData });
 
       // Call Injecto API
       const response = await axios.post(
         `${injectoUrl}/process-git-download`,
         {
           source: 'git',
-          repo_url: process.env.INFRA_TEMPLATES_REPO_URL || 'https://github.com/DevOpsGroupEU/openprime-infra-templates.git',
-          branch: process.env.INFRA_TEMPLATES_BRANCH || 'main',
+          repo_url: process.env.INFRA_TEMPLATES_REPO_URL,
+          branch: process.env.INFRA_TEMPLATES_BRANCH,
           input_dir: 'templates/',
           data: configData
         },
         {
           responseType: 'arraybuffer',
-          timeout: 60000, // 60 second timeout
+          timeout: 60000,
           headers: {
             'Content-Type': 'application/json'
           }
         }
       );
 
-      logger.info(`Infrastructure generated successfully for environment: ${environment.id}`);
+      logger.info('Infrastructure generated', { environmentId: environment.id });
       return Buffer.from(response.data);
     } catch (error) {
-      logger.error('Error calling Injecto service:', error.message);
-      if (error.response) {
-        logger.error('Injecto response status:', error.response.status);
-        logger.error('Injecto response data:', error.response.data?.toString() || 'No data');
-      }
+      logger.error('Injecto service call failed', {
+        error: error.message,
+        environmentId: environment.id,
+        status: error.response?.status,
+        responseData: error.response?.data?.toString()
+      });
       throw new Error(`Failed to generate infrastructure: ${error.message}`);
     }
   }

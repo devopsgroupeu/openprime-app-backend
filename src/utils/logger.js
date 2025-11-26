@@ -1,8 +1,14 @@
 const winston = require('winston');
 const path = require('path');
+const crypto = require('crypto');
+
+// Validate required environment variables
+if (!process.env.LOG_LEVEL) {
+  throw new Error('Missing required environment variable: LOG_LEVEL');
+}
 
 const logger = winston.createLogger({
-  level: process.env.LOG_LEVEL || 'info',
+  level: process.env.LOG_LEVEL,
   format: winston.format.combine(
     winston.format.timestamp({
       format: 'YYYY-MM-DD HH:mm:ss'
@@ -38,11 +44,29 @@ if (shouldLogToConsole) {
   logger.add(new winston.transports.Console({ format: consoleFormat }));
 }
 
-// Stream for Morgan
+// Stream for Morgan (with request ID support)
 logger.stream = {
-  write: (message) => {
-    logger.info(message.trim());
+  write: (message, req) => {
+    const meta = req?.requestId ? { requestId: req.requestId } : {};
+    logger.info(message.trim(), meta);
   }
 };
 
-module.exports = { logger };
+/**
+ * Generate a unique request ID
+ * @returns {string} 16-character hex string
+ */
+function generateRequestId() {
+  return crypto.randomBytes(8).toString('hex');
+}
+
+/**
+ * Create a child logger with request context
+ * @param {string} requestId - Request correlation ID
+ * @returns {winston.Logger} Child logger with requestId in metadata
+ */
+function createRequestLogger(requestId) {
+  return logger.child({ requestId });
+}
+
+module.exports = { logger, generateRequestId, createRequestLogger };

@@ -1,11 +1,10 @@
 const userService = require('../services/userService');
-const { logger } = require('../utils/logger');
 
 class UserController {
   async getCurrentUser(req, res) {
     try {
       let user = await userService.getUserByKeycloakId(req.user.id);
-      
+
       if (!user) {
         user = await userService.findOrCreateUser(req.user);
       }
@@ -24,7 +23,7 @@ class UserController {
         roles: req.user.roles
       });
     } catch (error) {
-      logger.error('Error getting current user:', error);
+      req.log.error('Failed to get current user', { error: error.message });
       res.status(500).json({ error: 'Failed to get user information' });
     }
   }
@@ -32,7 +31,7 @@ class UserController {
   async updateProfile(req, res) {
     try {
       const { firstName, lastName, email } = req.body;
-      
+
       const user = await userService.getUserByKeycloakId(req.user.id);
       if (!user) {
         return res.status(404).json({ error: 'User not found' });
@@ -45,6 +44,7 @@ class UserController {
         full_name: `${firstName} ${lastName}`.trim()
       });
 
+      req.log.info('Profile updated', { userId: user.id });
       res.json({
         message: 'Profile updated successfully',
         user: {
@@ -57,7 +57,7 @@ class UserController {
         }
       });
     } catch (error) {
-      logger.error('Error updating profile:', error);
+      req.log.error('Failed to update profile', { error: error.message });
       res.status(500).json({ error: 'Failed to update profile' });
     }
   }
@@ -70,13 +70,14 @@ class UserController {
       }
 
       const updatedUser = await userService.updateUserPreferences(user.id, req.body);
-      
+
+      req.log.info('Preferences updated', { userId: user.id });
       res.json({
         message: 'Preferences updated successfully',
         preferences: updatedUser.preferences
       });
     } catch (error) {
-      logger.error('Error updating preferences:', error);
+      req.log.error('Failed to update preferences', { error: error.message });
       res.status(500).json({ error: 'Failed to update preferences' });
     }
   }
@@ -92,7 +93,7 @@ class UserController {
         preferences: user.preferences
       });
     } catch (error) {
-      logger.error('Error getting preferences:', error);
+      req.log.error('Failed to get preferences', { error: error.message });
       res.status(500).json({ error: 'Failed to get preferences' });
     }
   }
@@ -101,10 +102,10 @@ class UserController {
     try {
       const { limit = 50, offset = 0 } = req.query;
       const result = await userService.getAllUsers(parseInt(limit), parseInt(offset));
-      
+
       res.json(result);
     } catch (error) {
-      logger.error('Error getting all users:', error);
+      req.log.error('Failed to get all users', { error: error.message });
       res.status(500).json({ error: 'Failed to get users' });
     }
   }
@@ -112,12 +113,13 @@ class UserController {
   async deactivateUser(req, res) {
     try {
       const { userId } = req.params;
-      
+
       if (userId === req.user.id) {
         return res.status(400).json({ error: 'Cannot deactivate your own account' });
       }
 
       const user = await userService.deactivateUser(userId);
+      req.log.info('User deactivated', { targetUserId: userId });
       res.json({
         message: 'User deactivated successfully',
         user: {
@@ -127,7 +129,7 @@ class UserController {
         }
       });
     } catch (error) {
-      logger.error('Error deactivating user:', error);
+      req.log.error('Failed to deactivate user', { targetUserId: req.params.userId, error: error.message });
       res.status(500).json({ error: 'Failed to deactivate user' });
     }
   }

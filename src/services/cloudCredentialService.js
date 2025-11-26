@@ -1,5 +1,6 @@
-const { CloudCredential, User } = require('../models');
+const { CloudCredential } = require('../models');
 const { logger } = require('../utils/logger');
+const { Op } = require('sequelize');
 
 class CloudCredentialService {
   async createCredential(userId, credentialData) {
@@ -22,10 +23,10 @@ class CloudCredentialService {
         is_default: isDefault || false
       });
 
-      logger.info(`Created credential for user ${userId}, provider ${provider}`);
+      logger.info('Credential created', { credentialId: credential.id, userId, provider });
       return credential;
     } catch (error) {
-      logger.error('Error creating credential:', error);
+      logger.error('Failed to create credential', { error: error.message, userId, provider: credentialData.provider });
       throw error;
     }
   }
@@ -48,7 +49,7 @@ class CloudCredentialService {
 
       return credentials;
     } catch (error) {
-      logger.error('Error getting credentials:', error);
+      logger.error('Failed to get credentials', { error: error.message, userId, provider });
       throw error;
     }
   }
@@ -61,7 +62,7 @@ class CloudCredentialService {
 
       return credential;
     } catch (error) {
-      logger.error('Error getting credential by ID:', error);
+      logger.error('Failed to get credential', { error: error.message, credentialId, userId });
       throw error;
     }
   }
@@ -79,7 +80,7 @@ class CloudCredentialService {
       if (updateData.isDefault) {
         await CloudCredential.update(
           { is_default: false },
-          { where: { user_id: userId, provider: credential.provider, id: { [require('sequelize').Op.ne]: credentialId } } }
+          { where: { user_id: userId, provider: credential.provider, id: { [Op.ne]: credentialId } } }
         );
       }
 
@@ -90,11 +91,11 @@ class CloudCredentialService {
       if (updateData.isDefault !== undefined) updateFields.is_default = updateData.isDefault;
 
       await credential.update(updateFields);
-      logger.info(`Updated credential ${credentialId} for user ${userId}`);
+      logger.info('Credential updated', { credentialId, userId });
 
       return credential;
     } catch (error) {
-      logger.error('Error updating credential:', error);
+      logger.error('Failed to update credential', { error: error.message, credentialId, userId });
       throw error;
     }
   }
@@ -110,11 +111,11 @@ class CloudCredentialService {
       }
 
       await credential.update({ is_active: false });
-      logger.info(`Deleted credential ${credentialId} for user ${userId}`);
+      logger.info('Credential deleted', { credentialId, userId });
 
       return credential;
     } catch (error) {
-      logger.error('Error deleting credential:', error);
+      logger.error('Failed to delete credential', { error: error.message, credentialId, userId });
       throw error;
     }
   }
@@ -135,11 +136,11 @@ class CloudCredentialService {
       );
 
       await credential.update({ is_default: true });
-      logger.info(`Set credential ${credentialId} as default for user ${userId}`);
+      logger.info('Default credential set', { credentialId, userId, provider: credential.provider });
 
       return credential;
     } catch (error) {
-      logger.error('Error setting default credential:', error);
+      logger.error('Failed to set default credential', { error: error.message, credentialId, userId });
       throw error;
     }
   }

@@ -3,7 +3,10 @@ const { logger } = require('../utils/logger');
 
 class StateCraftService {
   constructor() {
-    this.statecraftUrl = process.env.STATECRAFT_SERVICE_URL || 'http://statecraft-local:8000';
+    if (!process.env.STATECRAFT_SERVICE_URL) {
+      throw new Error('Missing required environment variable: STATECRAFT_SERVICE_URL');
+    }
+    this.statecraftUrl = process.env.STATECRAFT_SERVICE_URL;
   }
 
   async createBackendResources(config) {
@@ -25,20 +28,20 @@ class StateCraftService {
         requestData.aws_secret_access_key = awsSecretAccessKey;
       }
 
-      logger.info(`Creating Terraform backend resources: bucket=${bucketName}, locking=${lockingMechanism}`);
+      logger.info('Creating Terraform backend resources', { bucketName, lockingMechanism, region });
 
       const response = await axios.post(`${this.statecraftUrl}/resources/create`, requestData, {
         headers: { 'Content-Type': 'application/json' },
         timeout: 60000
       });
 
-      logger.info('Terraform backend resources created successfully', response.data);
+      logger.info('Terraform backend resources created', { bucketName, response: response.data });
       return {
         success: true,
         data: response.data
       };
     } catch (error) {
-      logger.error('Error creating Terraform backend resources:', error.response?.data || error.message);
+      logger.error('Failed to create Terraform backend resources', { error: error.message, bucketName, responseData: error.response?.data });
       return {
         success: false,
         error: error.response?.data?.detail || error.message
@@ -65,20 +68,20 @@ class StateCraftService {
         requestData.aws_secret_access_key = awsSecretAccessKey;
       }
 
-      logger.info(`Deleting Terraform backend resources: bucket=${bucketName}, locking=${lockingMechanism}`);
+      logger.info('Deleting Terraform backend resources', { bucketName, lockingMechanism, region });
 
       const response = await axios.post(`${this.statecraftUrl}/resources/delete`, requestData, {
         headers: { 'Content-Type': 'application/json' },
         timeout: 60000
       });
 
-      logger.info('Terraform backend resources deleted successfully', response.data);
+      logger.info('Terraform backend resources deleted', { bucketName, response: response.data });
       return {
         success: true,
         data: response.data
       };
     } catch (error) {
-      logger.error('Error deleting Terraform backend resources:', error.response?.data || error.message);
+      logger.error('Failed to delete Terraform backend resources', { error: error.message, bucketName, responseData: error.response?.data });
       return {
         success: false,
         error: error.response?.data?.detail || error.message
@@ -91,7 +94,7 @@ class StateCraftService {
       const response = await axios.get(`${this.statecraftUrl}/health`, { timeout: 5000 });
       return response.data;
     } catch (error) {
-      logger.error('StateCraft health check failed:', error.message);
+      logger.error('StateCraft health check failed', { error: error.message, url: this.statecraftUrl });
       throw error;
     }
   }

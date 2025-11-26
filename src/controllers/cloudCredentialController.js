@@ -1,6 +1,5 @@
 const cloudCredentialService = require('../services/cloudCredentialService');
 const userService = require('../services/userService');
-const { logger } = require('../utils/logger');
 
 class CloudCredentialController {
   async createCredential(req, res) {
@@ -12,6 +11,7 @@ class CloudCredentialController {
 
       const credential = await cloudCredentialService.createCredential(user.id, req.body);
 
+      req.log.info('Credential created', { credentialId: credential.id, provider: credential.provider });
       res.status(201).json({
         message: 'Credential created successfully',
         credential: {
@@ -24,7 +24,7 @@ class CloudCredentialController {
         }
       });
     } catch (error) {
-      logger.error('Error creating credential:', error);
+      req.log.error('Failed to create credential', { error: error.message });
       res.status(500).json({ error: 'Failed to create credential' });
     }
   }
@@ -52,7 +52,7 @@ class CloudCredentialController {
         }))
       });
     } catch (error) {
-      logger.error('Error getting credentials:', error);
+      req.log.error('Failed to get credentials', { error: error.message });
       res.status(500).json({ error: 'Failed to get credentials' });
     }
   }
@@ -85,7 +85,7 @@ class CloudCredentialController {
         }
       });
     } catch (error) {
-      logger.error('Error getting credential:', error);
+      req.log.error('Failed to get credential', { credentialId: req.params.credentialId, error: error.message });
       res.status(500).json({ error: 'Failed to get credential' });
     }
   }
@@ -100,6 +100,7 @@ class CloudCredentialController {
       const { credentialId } = req.params;
       const credential = await cloudCredentialService.updateCredential(credentialId, user.id, req.body);
 
+      req.log.info('Credential updated', { credentialId });
       res.json({
         message: 'Credential updated successfully',
         credential: {
@@ -112,7 +113,7 @@ class CloudCredentialController {
         }
       });
     } catch (error) {
-      logger.error('Error updating credential:', error);
+      req.log.error('Failed to update credential', { credentialId: req.params.credentialId, error: error.message });
       res.status(500).json({ error: error.message || 'Failed to update credential' });
     }
   }
@@ -127,11 +128,12 @@ class CloudCredentialController {
       const { credentialId } = req.params;
       await cloudCredentialService.deleteCredential(credentialId, user.id);
 
+      req.log.info('Credential deleted', { credentialId });
       res.json({
         message: 'Credential deleted successfully'
       });
     } catch (error) {
-      logger.error('Error deleting credential:', error);
+      req.log.error('Failed to delete credential', { credentialId: req.params.credentialId, error: error.message });
       res.status(500).json({ error: error.message || 'Failed to delete credential' });
     }
   }
@@ -146,6 +148,7 @@ class CloudCredentialController {
       const { credentialId } = req.params;
       const credential = await cloudCredentialService.setDefaultCredential(credentialId, user.id);
 
+      req.log.info('Default credential set', { credentialId, provider: credential.provider });
       res.json({
         message: 'Default credential set successfully',
         credential: {
@@ -156,7 +159,7 @@ class CloudCredentialController {
         }
       });
     } catch (error) {
-      logger.error('Error setting default credential:', error);
+      req.log.error('Failed to set default credential', { credentialId: req.params.credentialId, error: error.message });
       res.status(500).json({ error: error.message || 'Failed to set default credential' });
     }
   }

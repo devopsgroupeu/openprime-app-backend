@@ -4,7 +4,6 @@ const environmentService = require('../services/environmentService');
 const userService = require('../services/userService');
 const statecraftService = require('../services/statecraftService');
 const cloudCredentialService = require('../services/cloudCredentialService');
-const { logger } = require('../utils/logger');
 
 exports.getUserEnvironments = async (req, res, next) => {
   try {
@@ -16,7 +15,7 @@ exports.getUserEnvironments = async (req, res, next) => {
     const environments = await environmentService.getUserEnvironments(user.id);
     res.json(environments);
   } catch (error) {
-    logger.error('Error getting user environments:', error);
+    req.log.error('Failed to get user environments', { error: error.message });
     next(error);
   }
 };
@@ -36,17 +35,17 @@ exports.getEnvironment = async (req, res, next) => {
 
     res.json(environment);
   } catch (error) {
-    logger.error('Error getting environment:', error);
+    req.log.error('Failed to get environment', { environmentId: req.params.id, error: error.message });
     next(error);
   }
 };
 
 exports.createEnvironment = async (req, res, next) => {
   try {
-    logger.info('Environment creation request body:', req.body);
+    req.log.debug('Environment creation request', { body: req.body });
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      logger.error('Validation errors:', errors.array());
+      req.log.warn('Validation failed', { errors: errors.array() });
       return res.status(400).json({ errors: errors.array() });
     }
 
@@ -60,18 +59,19 @@ exports.createEnvironment = async (req, res, next) => {
       user_id: user.id
     };
 
-    logger.info('Creating environment for user:', user.username);
+    req.log.info('Creating environment', { userId: user.id, username: user.username });
 
     // Convert to YAML format for logging/processing
     const yamlData = await environmentService.convertToYAML(environmentData);
-    logger.info('Environment YAML:', yamlData);
+    req.log.debug('Environment YAML generated', { yaml: yamlData });
 
     // Save environment with original data
     const environment = await environmentService.createEnvironment(environmentData);
 
+    req.log.info('Environment created', { environmentId: environment.id, name: environment.name });
     res.status(201).json(environment);
   } catch (error) {
-    logger.error('Error creating environment:', error);
+    req.log.error('Failed to create environment', { error: error.message });
     next(error);
   }
 };
@@ -94,9 +94,10 @@ exports.updateEnvironment = async (req, res, next) => {
       return res.status(404).json({ error: 'Environment not found' });
     }
 
+    req.log.info('Environment updated', { environmentId: id });
     res.json(environment);
   } catch (error) {
-    logger.error('Error updating environment:', error);
+    req.log.error('Failed to update environment', { environmentId: req.params.id, error: error.message });
     next(error);
   }
 };
@@ -114,9 +115,10 @@ exports.deleteEnvironment = async (req, res, next) => {
       return res.status(404).json({ error: 'Environment not found' });
     }
 
+    req.log.info('Environment deleted', { environmentId: id });
     res.json({ message: 'Environment deleted successfully' });
   } catch (error) {
-    logger.error('Error deleting environment:', error);
+    req.log.error('Failed to delete environment', { environmentId: req.params.id, error: error.message });
     next(error);
   }
 };
@@ -134,7 +136,7 @@ exports.generateInfrastructure = async (req, res, next) => {
       return res.status(404).json({ error: 'Environment not found' });
     }
 
-    logger.info(`Generating infrastructure for environment: ${id}`);
+    req.log.info('Generating infrastructure', { environmentId: id, name: environment.name });
 
     // Call Injecto service to generate infrastructure
     const zipBuffer = await environmentService.generateInfrastructure(environment);
@@ -144,7 +146,7 @@ exports.generateInfrastructure = async (req, res, next) => {
     res.setHeader('Content-Disposition', `attachment; filename=${environment.name}-infrastructure.zip`);
     res.send(zipBuffer);
   } catch (error) {
-    logger.error('Error generating infrastructure:', error);
+    req.log.error('Failed to generate infrastructure', { environmentId: req.params.id, error: error.message });
     next(error);
   }
 };
@@ -178,13 +180,12 @@ exports.createTerraformBackend = async (req, res, next) => {
     let decryptedCredentials;
     try {
       decryptedCredentials = credential.credentials;
-      logger.info('Decrypted credentials structure:', {
+      req.log.debug('Credentials decrypted', {
         hasCredentials: !!decryptedCredentials,
-        keys: decryptedCredentials ? Object.keys(decryptedCredentials) : [],
-        type: typeof decryptedCredentials
+        keys: decryptedCredentials ? Object.keys(decryptedCredentials) : []
       });
     } catch (error) {
-      logger.error('Failed to decrypt cloud credentials:', error);
+      req.log.error('Failed to decrypt credentials', { credentialId: cloudCredentialId, error: error.message });
       return res.status(400).json({ error: 'Failed to decrypt cloud credentials. Please update your credentials.' });
     }
 
@@ -192,7 +193,7 @@ exports.createTerraformBackend = async (req, res, next) => {
     const awsSecretAccessKey = decryptedCredentials?.secretAccessKey || decryptedCredentials?.secretKey;
 
     if (!awsAccessKeyId || !awsSecretAccessKey) {
-      logger.error('Invalid credential structure:', {
+      req.log.warn('Invalid credential structure', {
         hasCredentials: !!decryptedCredentials,
         hasAccessKeyId: !!awsAccessKeyId,
         hasSecretAccessKey: !!awsSecretAccessKey,
@@ -211,7 +212,7 @@ exports.createTerraformBackend = async (req, res, next) => {
 
     const bucketName = `${awsAccountId}-terraform-${sanitizedEnvName}`;
 
-    logger.info('Generated bucket name:', { bucketName, awsAccountId, environmentName, sanitizedEnvName });
+    req.log.debug('Generated bucket name', { bucketName, awsAccountId, sanitizedEnvName });
 
     const statecraftConfig = {
       region,
@@ -222,11 +223,11 @@ exports.createTerraformBackend = async (req, res, next) => {
       awsSecretAccessKey
     };
 
-    logger.info(`Creating Terraform backend resources for user ${user.username}`);
+    req.log.info('Creating Terraform backend', { userId: user.id, bucketName, region });
     const result = await statecraftService.createBackendResources(statecraftConfig);
 
     if (!result.success) {
-      logger.error('Failed to create Terraform backend:', result.error);
+      req.log.error('Terraform backend creation failed', { error: result.error });
       return res.status(500).json({
         success: false,
         error: 'Failed to create Terraform backend resources',
@@ -234,7 +235,7 @@ exports.createTerraformBackend = async (req, res, next) => {
       });
     }
 
-    logger.info('Terraform backend resources created successfully');
+    req.log.info('Terraform backend created', { bucketName, region });
     res.status(201).json({
       success: true,
       message: 'Terraform backend resources created successfully',
@@ -245,7 +246,7 @@ exports.createTerraformBackend = async (req, res, next) => {
       }
     });
   } catch (error) {
-    logger.error('Error creating Terraform backend:', error);
+    req.log.error('Failed to create Terraform backend', { error: error.message });
     next(error);
   }
 };
