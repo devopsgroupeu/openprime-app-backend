@@ -24,7 +24,8 @@ const app = express();
 const PORT = process.env.PORT;
 
 // Trust proxy when running behind ingress/load balancer
-app.set('trust proxy', true);
+// Use 1 to trust only the immediate proxy (more secure than true)
+app.set('trust proxy', 1);
 
 // Security middleware
 app.use(helmet());

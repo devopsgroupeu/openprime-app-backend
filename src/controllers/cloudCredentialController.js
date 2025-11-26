@@ -24,7 +24,27 @@ class CloudCredentialController {
         }
       });
     } catch (error) {
-      req.log.error('Failed to create credential', { error: error.message });
+      // Handle Sequelize unique constraint violation (expected user error, not system error)
+      if (error.name === 'SequelizeUniqueConstraintError') {
+        req.log.warn('Duplicate credential creation attempted', {
+          error: error.message,
+          provider: req.body.provider,
+          name: req.body.name
+        });
+        return res.status(409).json({
+          error: 'A credential with this name already exists for this provider'
+        });
+      }
+
+      // Handle Sequelize validation errors
+      if (error.name === 'SequelizeValidationError') {
+        const messages = error.errors?.map(e => e.message).join(', ') || error.message;
+        req.log.warn('Credential validation failed', { error: messages });
+        return res.status(400).json({ error: messages });
+      }
+
+      // Log unexpected errors as error level
+      req.log.error('Failed to create credential', { error: error.message, name: error.name });
       res.status(500).json({ error: 'Failed to create credential' });
     }
   }

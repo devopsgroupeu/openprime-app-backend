@@ -26,7 +26,22 @@ class CloudCredentialService {
       logger.info('Credential created', { credentialId: credential.id, userId, provider });
       return credential;
     } catch (error) {
-      logger.error('Failed to create credential', { error: error.message, userId, provider: credentialData.provider });
+      const errorDetails = {
+        error: error.message,
+        errorType: error.name,
+        userId,
+        provider: credentialData.provider
+      };
+
+      // Add specific details for unique constraint violations
+      if (error.name === 'SequelizeUniqueConstraintError') {
+        errorDetails.constraint = error.parent?.constraint;
+        errorDetails.detail = error.parent?.detail;
+        logger.warn('Duplicate credential attempted', errorDetails);
+      } else {
+        logger.error('Failed to create credential', errorDetails);
+      }
+
       throw error;
     }
   }
@@ -110,10 +125,11 @@ class CloudCredentialService {
         throw new Error('Credential not found');
       }
 
-      await credential.update({ is_active: false });
+      // Hard delete - actually remove from database
+      await credential.destroy();
       logger.info('Credential deleted', { credentialId, userId });
 
-      return credential;
+      return { id: credentialId, deleted: true };
     } catch (error) {
       logger.error('Failed to delete credential', { error: error.message, credentialId, userId });
       throw error;
