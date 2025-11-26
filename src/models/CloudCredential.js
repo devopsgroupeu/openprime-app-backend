@@ -2,7 +2,7 @@ const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/database');
 const crypto = require('crypto');
 
-const ENCRYPTION_KEY = process.env.CREDENTIALS_ENCRYPTION_KEY || crypto.randomBytes(32).toString('hex');
+const ENCRYPTION_KEY = process.env.CREDENTIALS_ENCRYPTION_KEY;
 const ALGORITHM = 'aes-256-gcm';
 
 const CloudCredential = sequelize.define('CloudCredential', {
