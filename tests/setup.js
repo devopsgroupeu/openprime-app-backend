@@ -1,7 +1,19 @@
 // tests/setup.js
+// Set all required environment variables BEFORE any modules are loaded
 process.env.NODE_ENV = 'test';
+process.env.PORT = '3001';
+process.env.FRONTEND_URL = 'http://localhost:3000';
+process.env.LOG_LEVEL = 'error';
 process.env.DB_NAME = 'openprime_test';
-process.env.LOG_LEVEL = 'error'; // Minimize logging during tests
+process.env.DB_USER = 'postgres';
+process.env.DB_PASSWORD = 'postgres';
+process.env.DB_HOST = 'localhost';
+process.env.DB_PORT = '5432';
+process.env.KEYCLOAK_REALM = 'test-realm';
+process.env.KEYCLOAK_URL = 'http://localhost:8080';
+process.env.STATECRAFT_SERVICE_URL = 'http://localhost:8000';
+process.env.INJECTO_SERVICE_URL = 'http://localhost:8000';
+process.env.CREDENTIALS_ENCRYPTION_KEY = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
 
 // Mock Keycloak authentication for tests
 jest.mock('../src/middleware/auth', () => ({
@@ -76,6 +88,40 @@ jest.mock('../src/utils/logger', () => ({
     error: jest.fn(),
     warn: jest.fn(),
     debug: jest.fn(),
-    stream: { write: jest.fn() }
+    stream: { write: jest.fn() },
+    child: jest.fn().mockReturnValue({
+      info: jest.fn(),
+      error: jest.fn(),
+      warn: jest.fn(),
+      debug: jest.fn()
+    })
+  },
+  generateRequestId: jest.fn().mockReturnValue('test-request-id'),
+  createRequestLogger: jest.fn().mockReturnValue({
+    info: jest.fn(),
+    error: jest.fn(),
+    warn: jest.fn(),
+    debug: jest.fn()
+  })
+}));
+
+// Mock request logger middleware
+jest.mock('../src/middleware/requestLogger', () => ({
+  requestLogger: (req, res, next) => {
+    req.requestId = 'test-request-id';
+    req.log = {
+      info: jest.fn(),
+      error: jest.fn(),
+      warn: jest.fn(),
+      debug: jest.fn()
+    };
+    next();
   }
+}));
+
+// Mock statecraft service
+jest.mock('../src/services/statecraftService', () => ({
+  createBackendResources: jest.fn().mockResolvedValue({ success: true, data: {} }),
+  deleteBackendResources: jest.fn().mockResolvedValue({ success: true, data: {} }),
+  healthCheck: jest.fn().mockResolvedValue({ status: 'ok' })
 }));
