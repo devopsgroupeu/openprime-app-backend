@@ -41,7 +41,7 @@ class StateCraftService {
         data: response.data
       };
     } catch (error) {
-      logger.error('Failed to create Terraform backend resources', { error: error.message, bucketName, responseData: error.response?.data });
+      logger.error('Failed to create Terraform backend resources', { error: error.message, bucketName: config.bucketName, responseData: error.response?.data });
       return {
         success: false,
         error: error.response?.data?.detail || error.message
@@ -81,7 +81,7 @@ class StateCraftService {
         data: response.data
       };
     } catch (error) {
-      logger.error('Failed to delete Terraform backend resources', { error: error.message, bucketName, responseData: error.response?.data });
+      logger.error('Failed to delete Terraform backend resources', { error: error.message, bucketName: config.bucketName, responseData: error.response?.data });
       return {
         success: false,
         error: error.response?.data?.detail || error.message
