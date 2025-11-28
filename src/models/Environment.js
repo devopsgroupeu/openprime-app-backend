@@ -16,6 +16,16 @@ const Environment = sequelize.define('Environment', {
       len: [1, 255]
     }
   },
+  global_prefix: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    defaultValue: 'op-',
+    validate: {
+      notEmpty: true,
+      len: [1, 50]
+    },
+    comment: 'Global prefix used for all resource names in generated infrastructure'
+  },
   provider: {
     type: DataTypes.ENUM('aws', 'azure', 'gcp', 'onpremise'),
     allowNull: false,

@@ -14,6 +14,7 @@ class EnvironmentService {
     try {
       const environmentData = {
         name: data.name,
+        global_prefix: data.globalPrefix,
         provider: data.provider || data.type || 'aws',
         region: data.region || null,
         location: data.location || data.region || null,
@@ -92,6 +93,7 @@ class EnvironmentService {
 
       const updateData = {
         name: data.name,
+        global_prefix: data.globalPrefix !== undefined ? data.globalPrefix : environment.global_prefix,
         provider: data.provider || data.type,
         region: data.region,
         location: data.location || data.region,
@@ -187,11 +189,12 @@ class EnvironmentService {
   prepareInjectoData(environment) {
     // Transform environment configuration to Injecto-compatible format
     const data = {
-      environment: {
-        name: environment.name,
-        provider: environment.provider,
-        region: environment.region || environment.location
-      },
+      name: environment.name,
+      globalPrefix: environment.global_prefix || environment.globalPrefix || '',
+      provider: environment.provider,
+      region: environment.region || environment.location,
+      terraformBackend: environment.terraform_backend || null,
+      gitRepository: environment.git_repository || null,
       services: {}
     };
 
