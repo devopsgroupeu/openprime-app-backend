@@ -10,8 +10,12 @@ image:
   # Overrides the image tag whose default is the chart appVersion.
   tag: "main"
 
-imagePullSecrets:
-  - name: ghcr-secret
+imagePullSecrets: []
+
+# Deployment strategy
+strategy:
+  type: RollingUpdate
+
 nameOverride: ""
 fullnameOverride: ""
 
