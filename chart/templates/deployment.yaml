@@ -50,7 +50,15 @@ spec:
             - name: {{ $key }}
               value: {{ $value | quote }}
             {{- end }}
-            {{- if .Values.app.secrets }}
+            {{- if .Values.app.existingSecret }}
+            {{- range .Values.app.existingSecretKeys }}
+            - name: {{ . }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.app.existingSecret }}
+                  key: {{ . }}
+            {{- end }}
+            {{- else if .Values.app.secrets }}
             {{- range $key, $value := .Values.app.secrets }}
             - name: {{ $key }}
               valueFrom:

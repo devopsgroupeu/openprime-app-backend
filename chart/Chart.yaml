@@ -2,7 +2,7 @@ apiVersion: v2
 name: openprime-app-backend
 description: OpenPrime Express.js backend API for infrastructure management platform
 type: application
-version: 0.2.0
+version: 0.3.0
 appVersion: "0.2.0"
 home: https://github.com/devopsgroupeu/openprime-app-backend
 sources:
