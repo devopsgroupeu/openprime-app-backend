@@ -7,6 +7,26 @@ if (!process.env.LOG_LEVEL) {
   throw new Error('Missing required environment variable: LOG_LEVEL');
 }
 
+// Determine if file logging should be enabled
+// In Kubernetes, we only use console logging (logs are collected by Loki)
+const isKubernetes = !!process.env.KUBERNETES_SERVICE_HOST;
+const shouldUseFileLogging = !isKubernetes && process.env.FILE_LOGGING !== 'false';
+
+const transports = [];
+
+// Add file transports only in non-Kubernetes environments
+if (shouldUseFileLogging) {
+  transports.push(
+    new winston.transports.File({
+      filename: path.join('logs', 'error.log'),
+      level: 'error'
+    }),
+    new winston.transports.File({
+      filename: path.join('logs', 'combined.log')
+    })
+  );
+}
+
 const logger = winston.createLogger({
   level: process.env.LOG_LEVEL,
   format: winston.format.combine(
@@ -18,17 +38,7 @@ const logger = winston.createLogger({
     winston.format.json()
   ),
   defaultMeta: { service: 'openprime-backend' },
-  transports: [
-    // Write all logs with level 'error' and below to error.log
-    new winston.transports.File({ 
-      filename: path.join('logs', 'error.log'), 
-      level: 'error' 
-    }),
-    // Write all logs with level 'info' and below to combined.log
-    new winston.transports.File({ 
-      filename: path.join('logs', 'combined.log') 
-    }),
-  ],
+  transports,
 });
 
 // Add console logging based on CONSOLE_LOGGING env var or if not in production
