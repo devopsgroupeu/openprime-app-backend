@@ -166,6 +166,35 @@ exports.generateInfrastructure = async (req, res, next) => {
   }
 };
 
+exports.pushInfrastructure = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    let user = await userService.getUserByKeycloakId(req.user.id);
+    if (!user) {
+      user = await userService.findOrCreateUser(req.user);
+    }
+
+    const environment = await environmentService.getEnvironmentByIdAndUser(id, user.id);
+    if (!environment) {
+      return res.status(404).json({ error: 'Environment not found' });
+    }
+
+    // Call Injecto service to generate infrastructure 
+    req.log.info('Generating infrastructure', { environmentId: id, name: environment.name });
+    const zipBuffer = await environmentService.generateInfrastructure(environment);
+
+    // Call git push service to push infrastructure
+    req.log.info('Pushing infrastructure to Git', { environmentId: id, name: environment.name });
+    const result = await environmentService.pushInfrastructure(zipBuffer, environment.git_repository);
+
+    // Set response 
+    res.json(result);
+  } catch (error) {
+    req.log.error('Failed to push infrastructure', { environmentId: req.params.id, error: error.message });
+    next(error);
+  }
+};
+
 exports.createTerraformBackend = async (req, res, next) => {
   try {
     const { region, environmentName, lockingMechanism, tableName, cloudCredentialId } = req.body;

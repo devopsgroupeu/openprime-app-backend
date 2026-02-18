@@ -3,6 +3,11 @@ const yaml = require("js-yaml");
 const axios = require("axios");
 const { logger } = require("../utils/logger");
 const { Environment } = require("../models");
+const fs = require("fs");
+const os = require("os");
+const path = require("path");
+const AdmZip = require("adm-zip");
+const simpleGit = require("simple-git");
 
 // Validate required environment variable
 if (!process.env.INJECTO_SERVICE_URL) {
@@ -200,6 +205,77 @@ class EnvironmentService {
       throw new Error(`Failed to generate infrastructure: ${error.message}`, {
         cause: error,
       });
+    }
+  }
+
+  async pushInfrastructure(zipBuffer, git_repository) {
+    // Create temporary dir
+    logger.info("Creating temp directories");
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "openprime-push-dir-"));
+    const gitDir = path.join(tempDir, "git");
+    const extractDir = path.join(tempDir, "extract");
+    const keyDir = path.join(tempDir, "ssh_key");
+
+    try {
+      // Git config - key
+      // git key refactor
+      const sshKey = git_repository.sshKey.replace(/\\n/g, "\n").trim() + "\n";
+      fs.writeFileSync(keyDir, sshKey, { mode: 0o600 });
+
+      const git = simpleGit().env(
+        "GIT_SSH_COMMAND",
+        `ssh -i ${keyDir} -o StrictHostKeyChecking=no`,
+      );
+
+      // Clone user repo
+      logger.info("Cloning user repository", { url: git_repository.url });
+      await git.clone(git_repository.url, gitDir);
+
+      // Extract zip
+      const zip = new AdmZip(zipBuffer);
+      zip.extractAllTo(extractDir, true);
+
+      // Copy extracted files to cloned repo dir
+      this.recursiveCopy(extractDir, gitDir);
+
+      // Switch to cloned repo Dir
+      await git.cwd(gitDir);
+
+      // Git identity + stage
+      await git.addConfig("user.email", "generated_by@openprime.com");
+      await git.addConfig("user.name", "OpenPrime");
+      await git.add(".");
+
+      // Check if there are changes
+      const status = await git.status();
+      if (status.isClean()) {
+        logger.info("No changes to commit — repository is already up to date");
+        return { status: "success", message: "Repository is already up to date" };
+      }
+
+      // Push
+      await git.commit("Generated infrastructure with OpenPrime");
+      await git.push();
+      return { status: "success", message: "Infrastructure pushed to Git" };
+    } catch (error) {
+      logger.error("Failed to push to Git", { error: error.message });
+      throw new Error(`Failed to push to Git: ${error.message}`);
+    } finally {
+      // Cleanup
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+  }
+
+  recursiveCopy(src, dest) {
+    for (const item of fs.readdirSync(src)) {
+      const srcPath = path.join(src, item);
+      const destPath = path.join(dest, item);
+      if (fs.statSync(srcPath).isDirectory()) {
+        fs.mkdirSync(destPath, { recursive: true });
+        this.recursiveCopy(srcPath, destPath);
+      } else {
+        fs.copyFileSync(srcPath, destPath);
+      }
     }
   }
 
