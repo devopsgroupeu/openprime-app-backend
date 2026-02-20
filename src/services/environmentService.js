@@ -172,7 +172,8 @@ class EnvironmentService {
         url: `${injectoUrl}/process-git-download`,
         environmentId: environment.id,
       });
-      logger.debug("Injecto configuration", { data: configData });
+      const { gitRepository, ...configDataNoGit } = configData;
+      logger.debug("Injecto configuration", { data: configDataNoGit });
 
       // Call Injecto API
       const response = await axios.post(
