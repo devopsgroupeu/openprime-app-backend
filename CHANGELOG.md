@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.0](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.1.0...v1.2.0) (2026-02-24)
+
+### 🚀 Features
+
+* **cicd:** add commitlintrc.json ([8420f30](https://github.com/devopsgroupeu/openprime-app-backend/commit/8420f309cf0bac322d7c5f47085975950c7f23d2))
+
 ## [1.1.0](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.0.0...v1.1.0) (2026-02-24)
 
 ### 🚀 Features
