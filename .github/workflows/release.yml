@@ -37,9 +37,6 @@ jobs:
       - name: Run tests
         run: npm test -- --coverage --watchAll=false
 
-      - name: Build application
-        run: npm run build
-
       - name: Semantic Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
