@@ -133,7 +133,7 @@ jobs:
       - name: Push Helm Chart
         run: |
           CHART_VERSION=$(helm show chart ${{ env.HELM_CHART_PATH }} | grep '^version:' | awk '{print $2}')
-          helm push ./charts/openprime-app-${CHART_VERSION}.tgz oci://${{ env.REGISTRY }}/${{ github.repository_owner }}/helm
+          helm push ./charts/openprime-app-backend-${CHART_VERSION}.tgz oci://${{ env.REGISTRY }}/${{ github.repository_owner }}/helm
 
       - name: Create Chart Release Notes
         if: github.event_name == 'release'
@@ -144,7 +144,7 @@ jobs:
           echo "- **Registry:** oci://${{ env.REGISTRY }}/${{ github.repository_owner }}/helm" >> $GITHUB_STEP_SUMMARY
           echo "- **Install Command:**" >> $GITHUB_STEP_SUMMARY
           echo '```bash' >> $GITHUB_STEP_SUMMARY
-          echo "helm install openprime-app oci://${{ env.REGISTRY }}/${{ github.repository_owner }}/helm/openprime-app --version $(helm show chart ${{ env.HELM_CHART_PATH }} | grep '^version:' | awk '{print $2}')" >> $GITHUB_STEP_SUMMARY
+          echo "helm install openprime-app-backend oci://${{ env.REGISTRY }}/${{ github.repository_owner }}/helm/openprime-app-backend --version $(helm show chart ${{ env.HELM_CHART_PATH }} | grep '^version:' | awk '{print $2}')" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
 
   security-scan:
