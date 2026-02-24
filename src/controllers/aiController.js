@@ -18,7 +18,7 @@ async function chat(req, res, next) {
     const send = (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
 
     try {
-      await streamChat({ messages, topic: req.body.topic}, (chunk, meta) => {
+      await streamChat({ messages, topic: req.body.topic }, (chunk, meta) => {
         if (chunk) send({ chunk });
         if (meta?.done) send({ done: true });
       });
@@ -26,7 +26,7 @@ async function chat(req, res, next) {
       console.error("AI streaming error:", err);
       // Fallback message in case the AI model cannot be reached
       send({
-        chunk: "⚠️ Sorry, Aura AI couldn't connect to the model. Please try again later."
+        chunk: "⚠️ Sorry, Aura AI couldn't connect to the model. Please try again later.",
       });
       send({ done: true });
     }

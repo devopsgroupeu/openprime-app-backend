@@ -1,51 +1,54 @@
-const cloudCredentialService = require('../services/cloudCredentialService');
-const userService = require('../services/userService');
+const cloudCredentialService = require("../services/cloudCredentialService");
+const userService = require("../services/userService");
 
 class CloudCredentialController {
   async createCredential(req, res) {
     try {
       const user = await userService.getUserByKeycloakId(req.user.id);
       if (!user) {
-        return res.status(404).json({ error: 'User not found' });
+        return res.status(404).json({ error: "User not found" });
       }
 
       const credential = await cloudCredentialService.createCredential(user.id, req.body);
 
-      req.log.info('Credential created', { credentialId: credential.id, provider: credential.provider });
+      req.log.info("Credential created", {
+        credentialId: credential.id,
+        provider: credential.provider,
+      });
       res.status(201).json({
-        message: 'Credential created successfully',
+        message: "Credential created successfully",
         credential: {
           id: credential.id,
           provider: credential.provider,
           name: credential.name,
           identifier: credential.identifier,
           isDefault: credential.is_default,
-          createdAt: credential.createdAt
-        }
+          createdAt: credential.createdAt,
+        },
       });
     } catch (error) {
       // Handle Sequelize unique constraint violation (expected user error, not system error)
-      if (error.name === 'SequelizeUniqueConstraintError') {
-        req.log.warn('Duplicate credential creation attempted', {
+      if (error.name === "SequelizeUniqueConstraintError") {
+        req.log.warn("Duplicate credential creation attempted", {
           error: error.message,
           provider: req.body.provider,
-          name: req.body.name
+          name: req.body.name,
         });
         return res.status(409).json({
-          error: 'A credential with this name already exists for this provider'
+          error: "A credential with this name already exists for this provider",
         });
       }
 
       // Handle Sequelize validation errors
-      if (error.name === 'SequelizeValidationError') {
-        const messages = error.errors?.map(e => e.message).join(', ') || error.message;
-        req.log.warn('Credential validation failed', { error: messages });
+      if (error.name === "SequelizeValidationError") {
+        const messages = error.errors?.map((e) => e.message).join(", ") || error.message;
+        req.log.warn("Credential validation failed", { error: messages });
         return res.status(400).json({ error: messages });
       }
 
       // Log unexpected errors as error level
-      req.log.error('Failed to create credential', { error: error.message, name: error.name });
-      res.status(500).json({ error: 'Failed to create credential' });
+      req.log.error("Failed to create credential", { error: error.message, name: error.name });
+      res.status(500).json({ error: "Failed to create credential" });
     }
   }
 
@@ -53,14 +56,14 @@ class CloudCredentialController {
     try {
       const user = await userService.getUserByKeycloakId(req.user.id);
       if (!user) {
-        return res.status(404).json({ error: 'User not found' });
+        return res.status(404).json({ error: "User not found" });
       }
 
       const { provider } = req.query;
       const credentials = await cloudCredentialService.getCredentialsByUser(user.id, provider);
 
       res.json({
-        credentials: credentials.map(cred => ({
+        credentials: credentials.map((cred) => ({
           id: cred.id,
           provider: cred.provider,
           name: cred.name,
@@ -68,12 +71,12 @@ class CloudCredentialController {
           isDefault: cred.is_default,
           lastValidated: cred.last_validated,
           createdAt: cred.createdAt,
-          updatedAt: cred.updatedAt
-        }))
+          updatedAt: cred.updatedAt,
+        })),
       });
     } catch (error) {
-      req.log.error('Failed to get credentials', { error: error.message });
-      res.status(500).json({ error: 'Failed to get credentials' });
+      req.log.error("Failed to get credentials", { error: error.message });
+      res.status(500).json({ error: "Failed to get credentials" });
     }
   }
 
@@ -81,14 +84,14 @@ class CloudCredentialController {
     try {
       const user = await userService.getUserByKeycloakId(req.user.id);
       if (!user) {
-        return res.status(404).json({ error: 'User not found' });
+        return res.status(404).json({ error: "User not found" });
       }
 
       const { credentialId } = req.params;
       const credential = await cloudCredentialService.getCredentialById(credentialId, user.id);
 
       if (!credential) {
-        return res.status(404).json({ error: 'Credential not found' });
+        return res.status(404).json({ error: "Credential not found" });
       }
 
       res.json({
@@ -101,12 +104,15 @@ class CloudCredentialController {
           isDefault: credential.is_default,
           lastValidated: credential.last_validated,
           createdAt: credential.createdAt,
-          updatedAt: credential.updatedAt
-        }
+          updatedAt: credential.updatedAt,
+        },
       });
     } catch (error) {
-      req.log.error('Failed to get credential', { credentialId: req.params.credentialId, error: error.message });
-      res.status(500).json({ error: 'Failed to get credential' });
+      req.log.error("Failed to get credential", {
+        credentialId: req.params.credentialId,
+        error: error.message,
+      });
+      res.status(500).json({ error: "Failed to get credential" });
     }
   }
 
@@ -114,27 +120,34 @@ class CloudCredentialController {
     try {
       const user = await userService.getUserByKeycloakId(req.user.id);
       if (!user) {
-        return res.status(404).json({ error: 'User not found' });
+        return res.status(404).json({ error: "User not found" });
       }
 
       const { credentialId } = req.params;
-      const credential = await cloudCredentialService.updateCredential(credentialId, user.id, req.body);
+      const credential = await cloudCredentialService.updateCredential(
+        credentialId,
+        user.id,
+        req.body,
+      );
 
-      req.log.info('Credential updated', { credentialId });
+      req.log.info("Credential updated", { credentialId });
       res.json({
-        message: 'Credential updated successfully',
+        message: "Credential updated successfully",
         credential: {
           id: credential.id,
           provider: credential.provider,
           name: credential.name,
           identifier: credential.identifier,
           isDefault: credential.is_default,
-          updatedAt: credential.updatedAt
-        }
+          updatedAt: credential.updatedAt,
+        },
       });
     } catch (error) {
-      req.log.error('Failed to update credential', { credentialId: req.params.credentialId, error: error.message });
-      res.status(500).json({ error: error.message || 'Failed to update credential' });
+      req.log.error("Failed to update credential", {
+        credentialId: req.params.credentialId,
+        error: error.message,
+      });
+      res.status(500).json({ error: error.message || "Failed to update credential" });
     }
   }
 
@@ -142,19 +155,22 @@ class CloudCredentialController {
     try {
       const user = await userService.getUserByKeycloakId(req.user.id);
       if (!user) {
-        return res.status(404).json({ error: 'User not found' });
+        return res.status(404).json({ error: "User not found" });
       }
 
       const { credentialId } = req.params;
       await cloudCredentialService.deleteCredential(credentialId, user.id);
 
-      req.log.info('Credential deleted', { credentialId });
+      req.log.info("Credential deleted", { credentialId });
       res.json({
-        message: 'Credential deleted successfully'
+        message: "Credential deleted successfully",
       });
     } catch (error) {
-      req.log.error('Failed to delete credential', { credentialId: req.params.credentialId, error: error.message });
-      res.status(500).json({ error: error.message || 'Failed to delete credential' });
+      req.log.error("Failed to delete credential", {
+        credentialId: req.params.credentialId,
+        error: error.message,
+      });
+      res.status(500).json({ error: error.message || "Failed to delete credential" });
     }
   }
 
@@ -162,25 +178,28 @@ class CloudCredentialController {
     try {
       const user = await userService.getUserByKeycloakId(req.user.id);
       if (!user) {
-        return res.status(404).json({ error: 'User not found' });
+        return res.status(404).json({ error: "User not found" });
       }
 
       const { credentialId } = req.params;
       const credential = await cloudCredentialService.setDefaultCredential(credentialId, user.id);
 
-      req.log.info('Default credential set', { credentialId, provider: credential.provider });
+      req.log.info("Default credential set", { credentialId, provider: credential.provider });
       res.json({
-        message: 'Default credential set successfully',
+        message: "Default credential set successfully",
         credential: {
           id: credential.id,
           provider: credential.provider,
           name: credential.name,
-          isDefault: credential.is_default
-        }
+          isDefault: credential.is_default,
+        },
       });
     } catch (error) {
-      req.log.error('Failed to set default credential', { credentialId: req.params.credentialId, error: error.message });
-      res.status(500).json({ error: error.message || 'Failed to set default credential' });
+      req.log.error("Failed to set default credential", {
+        credentialId: req.params.credentialId,
+        error: error.message,
+      });
+      res.status(500).json({ error: error.message || "Failed to set default credential" });
     }
   }
 }

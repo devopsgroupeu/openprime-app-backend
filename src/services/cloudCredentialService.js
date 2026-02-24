@@ -1,6 +1,6 @@
-const { CloudCredential } = require('../models');
-const { logger } = require('../utils/logger');
-const { Op } = require('sequelize');
+const { CloudCredential } = require("../models");
+const { logger } = require("../utils/logger");
+const { Op } = require("sequelize");
 
 class CloudCredentialService {
   async createCredential(userId, credentialData) {
@@ -10,7 +10,7 @@ class CloudCredentialService {
       if (isDefault) {
         await CloudCredential.update(
           { is_default: false },
-          { where: { user_id: userId, provider } }
+          { where: { user_id: userId, provider } },
         );
       }
 
@@ -20,26 +20,26 @@ class CloudCredentialService {
         name,
         identifier,
         credentials,
-        is_default: isDefault || false
+        is_default: isDefault || false,
       });
 
-      logger.info('Credential created', { credentialId: credential.id, userId, provider });
+      logger.info("Credential created", { credentialId: credential.id, userId, provider });
       return credential;
     } catch (error) {
       const errorDetails = {
         error: error.message,
         errorType: error.name,
         userId,
-        provider: credentialData.provider
+        provider: credentialData.provider,
       };
 
       // Add specific details for unique constraint violations
-      if (error.name === 'SequelizeUniqueConstraintError') {
+      if (error.name === "SequelizeUniqueConstraintError") {
         errorDetails.constraint = error.parent?.constraint;
         errorDetails.detail = error.parent?.detail;
-        logger.warn('Duplicate credential attempted', errorDetails);
+        logger.warn("Duplicate credential attempted", errorDetails);
       } else {
-        logger.error('Failed to create credential', errorDetails);
+        logger.error("Failed to create credential", errorDetails);
       }
 
       throw error;
@@ -56,15 +56,15 @@ class CloudCredentialService {
       const credentials = await CloudCredential.findAll({
         where,
         order: [
-          ['is_default', 'DESC'],
-          ['created_at', 'DESC']
+          ["is_default", "DESC"],
+          ["created_at", "DESC"],
         ],
-        attributes: { exclude: ['credentials'] }
+        attributes: { exclude: ["credentials"] },
       });
 
       return credentials;
     } catch (error) {
-      logger.error('Failed to get credentials', { error: error.message, userId, provider });
+      logger.error("Failed to get credentials", { error: error.message, userId, provider });
       throw error;
     }
   }
@@ -72,12 +72,12 @@ class CloudCredentialService {
   async getCredentialById(credentialId, userId) {
     try {
       const credential = await CloudCredential.findOne({
-        where: { id: credentialId, user_id: userId }
+        where: { id: credentialId, user_id: userId },
       });
 
       return credential;
     } catch (error) {
-      logger.error('Failed to get credential', { error: error.message, credentialId, userId });
+      logger.error("Failed to get credential", { error: error.message, credentialId, userId });
       throw error;
     }
   }
@@ -85,17 +85,23 @@ class CloudCredentialService {
   async updateCredential(credentialId, userId, updateData) {
     try {
       const credential = await CloudCredential.findOne({
-        where: { id: credentialId, user_id: userId }
+        where: { id: credentialId, user_id: userId },
       });
 
       if (!credential) {
-        throw new Error('Credential not found');
+        throw new Error("Credential not found");
       }
 
       if (updateData.isDefault) {
         await CloudCredential.update(
           { is_default: false },
-          { where: { user_id: userId, provider: credential.provider, id: { [Op.ne]: credentialId } } }
+          {
+            where: {
+              user_id: userId,
+              provider: credential.provider,
+              id: { [Op.ne]: credentialId },
+            },
+          },
         );
       }
 
@@ -106,11 +112,11 @@ class CloudCredentialService {
       if (updateData.isDefault !== undefined) updateFields.is_default = updateData.isDefault;
 
       await credential.update(updateFields);
-      logger.info('Credential updated', { credentialId, userId });
+      logger.info("Credential updated", { credentialId, userId });
 
       return credential;
     } catch (error) {
-      logger.error('Failed to update credential', { error: error.message, credentialId, userId });
+      logger.error("Failed to update credential", { error: error.message, credentialId, userId });
       throw error;
     }
   }
@@ -118,20 +124,20 @@ class CloudCredentialService {
   async deleteCredential(credentialId, userId) {
     try {
       const credential = await CloudCredential.findOne({
-        where: { id: credentialId, user_id: userId }
+        where: { id: credentialId, user_id: userId },
       });
 
       if (!credential) {
-        throw new Error('Credential not found');
+        throw new Error("Credential not found");
       }
 
       // Hard delete - actually remove from database
       await credential.destroy();
-      logger.info('Credential deleted', { credentialId, userId });
+      logger.info("Credential deleted", { credentialId, userId });
 
       return { id: credentialId, deleted: true };
     } catch (error) {
-      logger.error('Failed to delete credential', { error: error.message, credentialId, userId });
+      logger.error("Failed to delete credential", { error: error.message, credentialId, userId });
       throw error;
     }
   }
@@ -139,24 +145,32 @@ class CloudCredentialService {
   async setDefaultCredential(credentialId, userId) {
     try {
       const credential = await CloudCredential.findOne({
-        where: { id: credentialId, user_id: userId }
+        where: { id: credentialId, user_id: userId },
       });
 
       if (!credential) {
-        throw new Error('Credential not found');
+        throw new Error("Credential not found");
       }
 
       await CloudCredential.update(
         { is_default: false },
-        { where: { user_id: userId, provider: credential.provider } }
+        { where: { user_id: userId, provider: credential.provider } },
       );
 
       await credential.update({ is_default: true });
-      logger.info('Default credential set', { credentialId, userId, provider: credential.provider });
+      logger.info("Default credential set", {
+        credentialId,
+        userId,
+        provider: credential.provider,
+      });
 
       return credential;
     } catch (error) {
-      logger.error('Failed to set default credential', { error: error.message, credentialId, userId });
+      logger.error("Failed to set default credential", {
+        error: error.message,
+        credentialId,
+        userId,
+      });
       throw error;
     }
   }

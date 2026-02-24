@@ -32,7 +32,7 @@ repos:
         files: \.[jt]sx?$ # *.js, *.jsx, *.ts and *.tsx
         types: [file]
         additional_dependencies:
-          - eslint@9.17.0
+          - eslint@10.0.2
           - eslint-config-react-app
           - eslint-plugin-react
           - eslint-plugin-react-hooks

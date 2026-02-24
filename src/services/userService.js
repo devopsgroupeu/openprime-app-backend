@@ -1,5 +1,5 @@
-const { User } = require('../models');
-const { logger } = require('../utils/logger');
+const { User } = require("../models");
+const { logger } = require("../utils/logger");
 
 class UserService {
   async findOrCreateUser(userData) {
@@ -13,8 +13,8 @@ class UserService {
           first_name: userData.firstName,
           last_name: userData.lastName,
           full_name: userData.fullName,
-          last_login: new Date()
-        }
+          last_login: new Date(),
+        },
       });
 
       if (!created) {
@@ -24,14 +24,14 @@ class UserService {
           first_name: userData.firstName,
           last_name: userData.lastName,
           full_name: userData.fullName,
-          last_login: new Date()
+          last_login: new Date(),
         });
       }
 
-      logger.info('User synced', { userId: user.id, username: user.username, created });
+      logger.info("User synced", { userId: user.id, username: user.username, created });
       return user;
     } catch (error) {
-      logger.error('Failed to find/create user', { error: error.message, keycloakId: userData.id });
+      logger.error("Failed to find/create user", { error: error.message, keycloakId: userData.id });
       throw error;
     }
   }
@@ -41,7 +41,7 @@ class UserService {
       const user = await User.findByPk(id);
       return user;
     } catch (error) {
-      logger.error('Failed to get user by ID', { error: error.message, userId: id });
+      logger.error("Failed to get user by ID", { error: error.message, userId: id });
       throw error;
     }
   }
@@ -49,11 +49,11 @@ class UserService {
   async getUserByKeycloakId(keycloakId) {
     try {
       const user = await User.findOne({
-        where: { keycloak_id: keycloakId }
+        where: { keycloak_id: keycloakId },
       });
       return user;
     } catch (error) {
-      logger.error('Failed to get user by Keycloak ID', { error: error.message, keycloakId });
+      logger.error("Failed to get user by Keycloak ID", { error: error.message, keycloakId });
       throw error;
     }
   }
@@ -62,19 +62,19 @@ class UserService {
     try {
       const user = await User.findByPk(userId);
       if (!user) {
-        throw new Error('User not found');
+        throw new Error("User not found");
       }
 
       const updatedPreferences = {
         ...user.preferences,
-        ...preferences
+        ...preferences,
       };
 
       await user.update({ preferences: updatedPreferences });
-      logger.info('User preferences updated', { userId, username: user.username });
+      logger.info("User preferences updated", { userId, username: user.username });
       return user;
     } catch (error) {
-      logger.error('Failed to update user preferences', { error: error.message, userId });
+      logger.error("Failed to update user preferences", { error: error.message, userId });
       throw error;
     }
   }
@@ -83,14 +83,14 @@ class UserService {
     try {
       const user = await User.findByPk(userId);
       if (!user) {
-        throw new Error('User not found');
+        throw new Error("User not found");
       }
 
       await user.update({ is_active: false });
-      logger.info('User deactivated', { userId, username: user.username });
+      logger.info("User deactivated", { userId, username: user.username });
       return user;
     } catch (error) {
-      logger.error('Failed to deactivate user', { error: error.message, userId });
+      logger.error("Failed to deactivate user", { error: error.message, userId });
       throw error;
     }
   }
@@ -100,18 +100,18 @@ class UserService {
       const { rows: users, count } = await User.findAndCountAll({
         limit,
         offset,
-        order: [['created_at', 'DESC']],
-        attributes: { exclude: ['preferences'] }
+        order: [["created_at", "DESC"]],
+        attributes: { exclude: ["preferences"] },
       });
 
       return {
         users,
         total: count,
         limit,
-        offset
+        offset,
       };
     } catch (error) {
-      logger.error('Failed to get all users', { error: error.message, limit, offset });
+      logger.error("Failed to get all users", { error: error.message, limit, offset });
       throw error;
     }
   }

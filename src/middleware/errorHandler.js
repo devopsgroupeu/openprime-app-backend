@@ -1,43 +1,43 @@
 // src/middleware/errorHandler.js
-const { logger } = require('../utils/logger');
+const { logger } = require("../utils/logger");
 
 exports.errorHandler = (err, req, res, _next) => {
   const log = req.log || logger;
   const statusCode = err.status || 500;
 
-  log.error('Request error', {
+  log.error("Request error", {
     error: err.message,
     name: err.name,
     code: err.code,
     statusCode,
-    stack: err.stack
+    stack: err.stack,
   });
 
   // Validation errors
-  if (err.name === 'ValidationError') {
+  if (err.name === "ValidationError") {
     return res.status(400).json({
-      error: 'Validation Error',
-      details: err.errors
+      error: "Validation Error",
+      details: err.errors,
     });
   }
 
   // JWT errors
-  if (err.name === 'JsonWebTokenError') {
+  if (err.name === "JsonWebTokenError") {
     return res.status(401).json({
-      error: 'Invalid token'
+      error: "Invalid token",
     });
   }
 
   // Multer errors
-  if (err.code === 'LIMIT_FILE_SIZE') {
+  if (err.code === "LIMIT_FILE_SIZE") {
     return res.status(400).json({
-      error: 'File too large'
+      error: "File too large",
     });
   }
 
   // Default error
   res.status(statusCode).json({
-    error: err.message || 'Internal Server Error',
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+    error: err.message || "Internal Server Error",
+    ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
   });
 };
