@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.0](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.0.0...v1.1.0) (2026-02-24)
+
+### 🚀 Features
+
+* **cicd:** refactor github workflows ([9e19bef](https://github.com/devopsgroupeu/openprime-app-backend/commit/9e19bef9657f7947256ef11c5c93184e1534517e))
+
 ## 1.0.0 (2026-02-24)
 
 ### 🚀 Features
