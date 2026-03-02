@@ -106,20 +106,20 @@ app:
     NODE_ENV: "production"
     PORT: "3001"
     LOG_LEVEL: "info"
-    
+
     # Database configuration
     DB_HOST: "openprime-postgres"
     DB_PORT: "5432"
     DB_NAME: "openprime"
     DB_USER: "openprime_user"
-    
+
     # External service URLs
     FRONTEND_URL: "http://openprime-app"
     KEYCLOAK_URL: "http://openprime-keycloak:8080"
     KEYCLOAK_REALM: "openprime"
     KEYCLOAK_CLIENT_ID: "openprime-app"
     INJECTO_SERVICE_URL: "http://injecto:8000"
-    
+
     # AWS Configuration (if needed)
     AWS_REGION: "us-east-1"
 

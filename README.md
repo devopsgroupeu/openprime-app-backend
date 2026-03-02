@@ -22,17 +22,20 @@ Backend service for OpenPrime Infrastructure Deployment Platform.
 ## Installation
 
 1. Clone the repository:
+
 ```bash
 git clone <repository-url>
 cd openprime-backend
 ```
 
 2. Install dependencies:
+
 ```bash
 npm install
 ```
 
 3. Copy environment variables:
+
 ```bash
 cp .env.example .env
 ```
@@ -40,6 +43,7 @@ cp .env.example .env
 4. Configure environment variables in `.env`
 
 5. Create logs directory:
+
 ```bash
 mkdir logs
 ```
@@ -47,16 +51,19 @@ mkdir logs
 ## Running the Application
 
 ### Development mode:
+
 ```bash
 npm run dev
 ```
 
 ### Production mode:
+
 ```bash
 npm start
 ```
 
 ### Run tests:
+
 ```bash
 npm test
 ```
@@ -64,6 +71,7 @@ npm test
 ## API Endpoints
 
 ### Environments
+
 - `GET /api/environments` - Get all environments
 - `GET /api/environments/:id` - Get specific environment
 - `POST /api/environments` - Create new environment
@@ -74,6 +82,7 @@ npm test
 - `GET /api/environments/:id/export` - Export as IaC
 
 ### Helm Charts
+
 - `GET /api/helm/charts` - Get available charts
 - `GET /api/helm/charts/:chartName` - Get chart details
 - `GET /api/helm/charts/:chartName/values` - Get default values
@@ -81,6 +90,7 @@ npm test
 - `POST /api/helm/generate-values` - Generate values from config
 
 ### Terraform
+
 - `POST /api/terraform/generate` - Generate Terraform code
 - `POST /api/terraform/validate` - Validate configuration
 - `GET /api/terraform/modules` - Get available modules
@@ -88,6 +98,7 @@ npm test
 - `POST /api/terraform/export` - Export Terraform package
 
 ### Deployments
+
 - `GET /api/deployments` - Get all deployments
 - `GET /api/deployments/:id` - Get deployment details
 - `POST /api/deployments` - Create deployment
@@ -95,6 +106,7 @@ npm test
 - `POST /api/deployments/:id/rollback` - Rollback deployment
 
 ### Settings
+
 - `GET /api/settings` - Get all settings
 - `PUT /api/settings` - Update settings
 - `GET /api/settings/cloud-providers` - Get cloud providers
