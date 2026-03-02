@@ -176,27 +176,33 @@ exports.pushInfrastructure = async (req, res, next) => {
 
     const environment = await environmentService.getEnvironmentByIdAndUser(id, user.id);
     if (!environment) {
-      return res.status(404).json({ error: 'Environment not found' });
+      return res.status(404).json({ error: "Environment not found" });
     }
 
     // Check for Git URL and SSH
     const git_check = environment.git_repository;
     if (!git_check?.url || !git_check?.sshKey) {
-      return res.status(400).json({ error: 'Git repository is not configured' });
+      return res.status(400).json({ error: "Git repository is not configured" });
     }
 
-    // Call Injecto service to generate infrastructure 
-    req.log.info('Generating infrastructure', { environmentId: id, name: environment.name });
+    // Call Injecto service to generate infrastructure
+    req.log.info("Generating infrastructure", { environmentId: id, name: environment.name });
     const zipBuffer = await environmentService.generateInfrastructure(environment);
 
     // Call git push service to push infrastructure
-    req.log.info('Pushing infrastructure to Git', { environmentId: id, name: environment.name });
-    const result = await environmentService.pushInfrastructure(zipBuffer, environment.git_repository);
+    req.log.info("Pushing infrastructure to Git", { environmentId: id, name: environment.name });
+    const result = await environmentService.pushInfrastructure(
+      zipBuffer,
+      environment.git_repository,
+    );
 
-    // Set response 
+    // Set response
     res.json(result);
   } catch (error) {
-    req.log.error('Failed to push infrastructure', { environmentId: req.params.id, error: error.message });
+    req.log.error("Failed to push infrastructure", {
+      environmentId: req.params.id,
+      error: error.message,
+    });
     next(error);
   }
 };

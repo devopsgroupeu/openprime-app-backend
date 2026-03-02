@@ -3,9 +3,9 @@ const yaml = require("js-yaml");
 const axios = require("axios");
 const { logger } = require("../utils/logger");
 const { Environment } = require("../models");
-const fs = require("fs");
-const os = require("os");
-const path = require("path");
+const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
 const AdmZip = require("adm-zip");
 const simpleGit = require("simple-git");
 
@@ -172,7 +172,7 @@ class EnvironmentService {
         url: `${injectoUrl}/process-git-download`,
         environmentId: environment.id,
       });
-      const { gitRepository, ...configDataNoGit } = configData;
+      const { gitRepository: _gitRepository, ...configDataNoGit } = configData;
       logger.debug("Injecto configuration", { data: configDataNoGit });
 
       // Call Injecto API
@@ -221,7 +221,7 @@ class EnvironmentService {
       // Git config - key
       // git key refactor
       const sshKey = git_repository.sshKey.replace(/\\n/g, "\n").trim() + "\n";
-      fs.writeFileSync(keyDir, sshKey, { mode: 0o600 });
+      fs.promises.writeFile(keyDir, sshKey, { mode: 0o600 });
 
       const git = simpleGit().env(
         "GIT_SSH_COMMAND",
@@ -237,7 +237,7 @@ class EnvironmentService {
       zip.extractAllTo(extractDir, true);
 
       // Copy extracted files to cloned repo dir
-      this.recursiveCopy(extractDir, gitDir);
+      fs.promises.cp(extractDir, gitDir, { recursive: true });
 
       // Switch to cloned repo Dir
       await git.cwd(gitDir);
@@ -260,23 +260,10 @@ class EnvironmentService {
       return { status: "success", message: "Infrastructure pushed to Git" };
     } catch (error) {
       logger.error("Failed to push to Git", { error: error.message });
-      throw new Error(`Failed to push to Git: ${error.message}`);
+      throw new Error(`Failed to push to Git: ${error.message}`, { cause: error });
     } finally {
       // Cleanup
-      fs.rmSync(tempDir, { recursive: true, force: true });
-    }
-  }
-
-  recursiveCopy(src, dest) {
-    for (const item of fs.readdirSync(src)) {
-      const srcPath = path.join(src, item);
-      const destPath = path.join(dest, item);
-      if (fs.statSync(srcPath).isDirectory()) {
-        fs.mkdirSync(destPath, { recursive: true });
-        this.recursiveCopy(srcPath, destPath);
-      } else {
-        fs.copyFileSync(srcPath, destPath);
-      }
+      await fs.promises.rm(tempDir, { recursive: true, force: true });
     }
   }
 
@@ -295,7 +282,7 @@ class EnvironmentService {
     // Extract enabled services with their configurations
     if (environment.services && typeof environment.services === "object") {
       Object.entries(environment.services).forEach(([serviceName, serviceConfig]) => {
-        if (serviceConfig && serviceConfig.enabled) {
+        if (serviceConfig?.enabled) {
           data.services[serviceName] = {
             enabled: true,
             ...serviceConfig,
