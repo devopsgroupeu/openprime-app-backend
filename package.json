@@ -10,8 +10,8 @@
     "test:integration": "node src/scripts/test-db-connection.js",
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix",
-    "format": "prettier --write \"src/**/*.js\" \"tests/**/*.js\"",
-    "format:check": "prettier --check \"src/**/*.js\" \"tests/**/*.js\"",
+    "format": "prettier --write \"src/**/*.js\" \"tests/**/*.js\" \"**/*.json\" \"**/*.md\"",
+    "format:check": "prettier --check \"src/**/*.js\" \"tests/**/*.js\" \"**/*.json\" \"**/*.md\"",
     "commit": "git-cz",
     "semantic-release": "semantic-release"
   },
