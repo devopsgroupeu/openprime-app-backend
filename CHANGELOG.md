@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.0](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.2.0...v1.3.0) (2026-03-02)
+
+### 🚀 Features
+
+* **cicd:** mirror cicd setup from openprime-app, update pre-commit, formatting ([#4](https://github.com/devopsgroupeu/openprime-app-backend/issues/4)) ([9ed6ace](https://github.com/devopsgroupeu/openprime-app-backend/commit/9ed6ace75daec41d504c156364370213d6329913))
+
 ## [1.2.0](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.1.0...v1.2.0) (2026-02-24)
 
 ### 🚀 Features
