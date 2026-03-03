@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.4.1](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.4.0...v1.4.1) (2026-03-03)
+
+### 🐛 Bug Fixes
+
+* **s3_backend:** fix templating of s3 bucket terraform backend, set s3 locking as default ([af4f243](https://github.com/devopsgroupeu/openprime-app-backend/commit/af4f243ba7711e0cc79e899d7a7041d8c31515b5))
+
 ## [1.4.0](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.3.0...v1.4.0) (2026-03-03)
 
 ### 🚀 Features
