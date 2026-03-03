@@ -1,6 +1,6 @@
 {
   "name": "openprime-backend",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "OpenPrime Infrastructure Deployment Platform Backend API",
   "main": "src/server.js",
   "scripts": {
