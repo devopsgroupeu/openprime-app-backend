@@ -26,6 +26,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install only production dependencies
+RUN apk add --no-cache git openssh
 RUN npm ci --only=production && npm cache clean --force
 
 # Copy application files from builder stage

@@ -3,6 +3,11 @@ const yaml = require("js-yaml");
 const axios = require("axios");
 const { logger } = require("../utils/logger");
 const { Environment } = require("../models");
+const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
+const AdmZip = require("adm-zip");
+const simpleGit = require("simple-git");
 
 // Validate required environment variable
 if (!process.env.INJECTO_SERVICE_URL) {
@@ -167,7 +172,8 @@ class EnvironmentService {
         url: `${injectoUrl}/process-git-download`,
         environmentId: environment.id,
       });
-      logger.debug("Injecto configuration", { data: configData });
+      const { gitRepository: _gitRepository, ...configDataNoGit } = configData;
+      logger.debug("Injecto configuration", { data: configDataNoGit });
 
       // Call Injecto API
       const response = await axios.post(
@@ -203,6 +209,64 @@ class EnvironmentService {
     }
   }
 
+  async pushInfrastructure(zipBuffer, git_repository) {
+    // Create temporary dir
+    logger.info("Creating temp directories");
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "openprime-push-dir-"));
+    const gitDir = path.join(tempDir, "git");
+    const extractDir = path.join(tempDir, "extract");
+    const keyDir = path.join(tempDir, "ssh_key");
+
+    try {
+      // Git config - key
+      // git key refactor
+      const sshKey = git_repository.sshKey.replace(/\\n/g, "\n").trim() + "\n";
+      fs.promises.writeFile(keyDir, sshKey, { mode: 0o600 });
+
+      const git = simpleGit().env(
+        "GIT_SSH_COMMAND",
+        `ssh -i ${keyDir} -o StrictHostKeyChecking=no`,
+      );
+
+      // Clone user repo
+      logger.info("Cloning user repository", { url: git_repository.url });
+      await git.clone(git_repository.url, gitDir);
+
+      // Extract zip
+      const zip = new AdmZip(zipBuffer);
+      zip.extractAllTo(extractDir, true);
+
+      // Copy extracted files to cloned repo dir
+      fs.promises.cp(extractDir, gitDir, { recursive: true });
+
+      // Switch to cloned repo Dir
+      await git.cwd(gitDir);
+
+      // Git identity + stage
+      await git.addConfig("user.email", "generated_by@openprime.com");
+      await git.addConfig("user.name", "OpenPrime");
+      await git.add(".");
+
+      // Check if there are changes
+      const status = await git.status();
+      if (status.isClean()) {
+        logger.info("No changes to commit — repository is already up to date");
+        return { status: "success", message: "Repository is already up to date" };
+      }
+
+      // Push
+      await git.commit("Generated infrastructure with OpenPrime");
+      await git.push();
+      return { status: "success", message: "Infrastructure pushed to Git" };
+    } catch (error) {
+      logger.error("Failed to push to Git", { error: error.message });
+      throw new Error(`Failed to push to Git: ${error.message}`, { cause: error });
+    } finally {
+      // Cleanup
+      await fs.promises.rm(tempDir, { recursive: true, force: true });
+    }
+  }
+
   prepareInjectoData(environment) {
     // Transform environment configuration to Injecto-compatible format
     const data = {
@@ -218,7 +282,7 @@ class EnvironmentService {
     // Extract enabled services with their configurations
     if (environment.services && typeof environment.services === "object") {
       Object.entries(environment.services).forEach(([serviceName, serviceConfig]) => {
-        if (serviceConfig && serviceConfig.enabled) {
+        if (serviceConfig?.enabled) {
           data.services[serviceName] = {
             enabled: true,
             ...serviceConfig,
