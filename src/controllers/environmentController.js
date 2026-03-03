@@ -209,16 +209,10 @@ exports.pushInfrastructure = async (req, res, next) => {
 
 exports.createTerraformBackend = async (req, res, next) => {
   try {
-    const { region, environmentName, lockingMechanism, tableName, cloudCredentialId } = req.body;
+    const { region, environmentName, cloudCredentialId } = req.body;
 
     if (!region || !environmentName) {
       return res.status(400).json({ error: "Region and environment name are required" });
-    }
-
-    if (lockingMechanism === "dynamodb" && !tableName) {
-      return res
-        .status(400)
-        .json({ error: "Table name is required for DynamoDB locking mechanism" });
     }
 
     let user = await userService.getUserByKeycloakId(req.user.id);
@@ -286,8 +280,7 @@ exports.createTerraformBackend = async (req, res, next) => {
     const statecraftConfig = {
       region,
       bucketName,
-      lockingMechanism: lockingMechanism || "s3",
-      tableName,
+      lockingMechanism: "s3",
       awsAccessKeyId,
       awsSecretAccessKey,
     };

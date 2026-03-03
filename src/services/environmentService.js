@@ -269,12 +269,26 @@ class EnvironmentService {
 
   prepareInjectoData(environment) {
     // Transform environment configuration to Injecto-compatible format
+    const terraformBackend = environment.terraform_backend
+      ? {
+          ...environment.terraform_backend,
+          // Always use S3 native locking (Terraform 1.11+)
+          useLockfile: true,
+          // Set encrypt to true by default if not set
+          encrypt:
+            environment.terraform_backend.encrypt !== undefined
+              ? environment.terraform_backend.encrypt
+              : true,
+        }
+      : null;
+
     const data = {
       name: environment.name,
       globalPrefix: environment.global_prefix || environment.globalPrefix || "",
       provider: environment.provider,
       region: environment.region || environment.location,
-      terraformBackend: environment.terraform_backend || null,
+      terraformBackend,
+      backend: environment.terraform_backend?.enabled || false,
       gitRepository: environment.git_repository || null,
       services: {},
     };
