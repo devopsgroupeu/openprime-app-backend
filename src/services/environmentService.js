@@ -290,6 +290,13 @@ class EnvironmentService {
       terraformBackend,
       backend: environment.terraform_backend?.enabled || false,
       gitRepository: environment.git_repository || null,
+      // Map user-supplied git repo URL into the path Injecto uses for @param argocd.git_repo_url
+      argocd: {
+        git_repo_url: environment.git_repository?.url || "",
+        targetRevision: environment.git_repository?.branch || "HEAD",
+        git_target_revision: environment.git_repository?.branch || "HEAD",
+        keycloak_url: process.env.KEYCLOAK_URL || "http://keycloak:8080",
+      },
       services: {},
     };
 
