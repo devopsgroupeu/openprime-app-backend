@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.4.2](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.4.1...v1.4.2) (2026-03-04)
+
+### 🐛 Bug Fixes
+
+* **templating:** fix git variables to correctly pass to Injecto ([f375ae9](https://github.com/devopsgroupeu/openprime-app-backend/commit/f375ae9de5d046357fd879c1aa9e6a918ef6c4f0))
+
 ## [1.4.1](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.4.0...v1.4.1) (2026-03-03)
 
 ### 🐛 Bug Fixes
