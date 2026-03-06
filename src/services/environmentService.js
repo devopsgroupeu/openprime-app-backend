@@ -221,7 +221,7 @@ class EnvironmentService {
       // Git config - key
       // git key refactor
       const sshKey = git_repository.sshKey.replace(/\\n/g, "\n").trim() + "\n";
-      fs.promises.writeFile(keyDir, sshKey, { mode: 0o600 });
+      await fs.promises.writeFile(keyDir, sshKey, { mode: 0o600 });
 
       const git = simpleGit().env(
         "GIT_SSH_COMMAND",
@@ -237,7 +237,7 @@ class EnvironmentService {
       zip.extractAllTo(extractDir, true);
 
       // Copy extracted files to cloned repo dir
-      fs.promises.cp(extractDir, gitDir, { recursive: true });
+      await fs.promises.cp(extractDir, gitDir, { recursive: true });
 
       // Switch to cloned repo Dir
       await git.cwd(gitDir);
