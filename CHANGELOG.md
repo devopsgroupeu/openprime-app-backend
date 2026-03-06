@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.4.3](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.4.2...v1.4.3) (2026-03-06)
+
+### 🐛 Bug Fixes
+
+* secure AI route and fix git push race conditions ([#5](https://github.com/devopsgroupeu/openprime-app-backend/issues/5)) ([63e8bdc](https://github.com/devopsgroupeu/openprime-app-backend/commit/63e8bdc712d91e2bedb81d7feb098df6e901475b))
+
 ## [1.4.2](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.4.1...v1.4.2) (2026-03-04)
 
 ### 🐛 Bug Fixes
