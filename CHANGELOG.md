@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.4.4](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.4.3...v1.4.4) (2026-03-06)
+
+### ♻️ Code Refactoring
+
+* **routes:** remove redundant routes for environment management ([db15886](https://github.com/devopsgroupeu/openprime-app-backend/commit/db15886b1652e25615d4103b199bab53c3044556))
+
 ## [1.4.3](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.4.2...v1.4.3) (2026-03-06)
 
 ### 🐛 Bug Fixes
