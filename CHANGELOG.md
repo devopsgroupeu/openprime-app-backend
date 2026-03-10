@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.4.5](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.4.4...v1.4.5) (2026-03-10)
+
+### 🐛 Bug Fixes
+
+* **auth:** change response status to 401 for invalid or expired tokens ([661cb34](https://github.com/devopsgroupeu/openprime-app-backend/commit/661cb3466a41e1166f727000c694b5b15273804c))
+
 ## [1.4.4](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.4.3...v1.4.4) (2026-03-06)
 
 ### ♻️ Code Refactoring
