@@ -59,7 +59,7 @@ async function streamChat({ messages, topic }, onChunk) {
     const cmd = new ConverseStreamCommand({
       modelId: MODEL_ID,
       messages: bedrockMessages,
-      inferenceConfig: { maxTokens: 400, temperature: 0.2 },
+      inferenceConfig: { maxTokens: 400 },
     });
 
     const res = await sendWithRetry(cmd);
@@ -79,7 +79,7 @@ async function streamChat({ messages, topic }, onChunk) {
     const cmd = new ConverseCommand({
       modelId: MODEL_ID,
       messages: bedrockMessages,
-      inferenceConfig: { maxTokens: 400, temperature: 0.2 },
+      inferenceConfig: { maxTokens: 400 },
     });
 
     const res = await sendWithRetry(cmd);
