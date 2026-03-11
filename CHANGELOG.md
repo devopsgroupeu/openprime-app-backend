@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.4.9](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.4.8...v1.4.9) (2026-03-11)
+
+### 🐛 Bug Fixes
+
+* **chart:** update version to 1.4.9 and clean up values.yaml ([0995d6f](https://github.com/devopsgroupeu/openprime-app-backend/commit/0995d6fe6f99f913d8ad8675e4c5a09b4f916e93))
+
 ## [1.4.8](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.4.7...v1.4.8) (2026-03-11)
 
 ### 🐛 Bug Fixes
