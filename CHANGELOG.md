@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.4.6](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.4.5...v1.4.6) (2026-03-11)
+
+### 🐛 Bug Fixes
+
+* **aiService:** remove topP parameter from inferenceConfig in streamChat function ([685ad4c](https://github.com/devopsgroupeu/openprime-app-backend/commit/685ad4c5420c8c66a233a3e7b8ce18b85e66b8b5))
+
 ## [1.4.5](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.4.4...v1.4.5) (2026-03-10)
 
 ### 🐛 Bug Fixes
