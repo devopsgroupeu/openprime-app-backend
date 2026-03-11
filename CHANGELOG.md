@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.4.8](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.4.7...v1.4.8) (2026-03-11)
+
+### 🐛 Bug Fixes
+
+* **aiService:** separate system prompt construction and message formatting ([525c705](https://github.com/devopsgroupeu/openprime-app-backend/commit/525c7059b8666e7e2a698bec4026ace23cf273b8))
+
 ## [1.4.7](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.4.6...v1.4.7) (2026-03-11)
 
 ### 🐛 Bug Fixes
