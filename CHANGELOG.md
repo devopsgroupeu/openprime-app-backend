@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.4.7](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.4.6...v1.4.7) (2026-03-11)
+
+### 🐛 Bug Fixes
+
+* **aiService:** remove temperature parameter from inferenceConfig in streamChat function ([a834af7](https://github.com/devopsgroupeu/openprime-app-backend/commit/a834af72040af87109ae28377b79483e98f1e385))
+
 ## [1.4.6](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.4.5...v1.4.6) (2026-03-11)
 
 ### 🐛 Bug Fixes
