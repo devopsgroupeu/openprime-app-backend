@@ -56,14 +56,6 @@ if (shouldLogToConsole) {
   logger.add(new winston.transports.Console({ format: consoleFormat }));
 }
 
-// Stream for Morgan (with request ID support)
-logger.stream = {
-  write: (message, req) => {
-    const meta = req?.requestId ? { requestId: req.requestId } : {};
-    logger.info(message.trim(), meta);
-  },
-};
-
 /**
  * Generate a unique request ID
  * @returns {string} 16-character hex string
