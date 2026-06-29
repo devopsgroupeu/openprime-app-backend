@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.4.10](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.4.9...v1.4.10) (2026-06-29)
+
+### 📚 Documentation
+
+* add .env.example documenting required environment variables ([92743a9](https://github.com/devopsgroupeu/openprime-app-backend/commit/92743a981fd40e41b305328c0d2f9887dc1edeb6))
+
 ## [1.4.9](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.4.8...v1.4.9) (2026-03-11)
 
 ### 🐛 Bug Fixes
