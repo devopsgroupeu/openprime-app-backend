@@ -46,27 +46,7 @@ spec:
             {{- toYaml .Values.healthCheck.readinessProbe | nindent 12 }}
           {{- end }}
           env:
-            {{- range $key, $value := .Values.app.env }}
-            - name: {{ $key }}
-              value: {{ $value | quote }}
-            {{- end }}
-            {{- if .Values.app.existingSecret }}
-            {{- range .Values.app.existingSecretKeys }}
-            - name: {{ . }}
-              valueFrom:
-                secretKeyRef:
-                  name: {{ $.Values.app.existingSecret }}
-                  key: {{ . }}
-            {{- end }}
-            {{- else if .Values.app.secrets }}
-            {{- range $key, $value := .Values.app.secrets }}
-            - name: {{ $key }}
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "openprime-app-backend.fullname" $ }}-secrets
-                  key: {{ $key }}
-            {{- end }}
-            {{- end }}
+            {{- include "openprime-app-backend.env" . | trimPrefix "\n" | nindent 12 }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:

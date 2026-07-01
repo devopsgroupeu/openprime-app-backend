@@ -144,6 +144,27 @@ app:
     AWS_SECRET_ACCESS_KEY: "secret"
     BEDROCK_INFERENCE_PROFILE_ARN: "secret"
 
+# Database migrations (umzug) run as a Helm pre-install/pre-upgrade hook Job, so
+# the schema is applied before the app rolls out. The app refuses to start in
+# production while migrations are pending (validate-not-mutate), so this must be
+# enabled wherever the app runs against a managed/persistent database.
+migrations:
+  enabled: false
+  # Command executed inside the backend image.
+  command:
+    - node
+    - src/scripts/migrate.js
+    - up
+  backoffLimit: 2
+  activeDeadlineSeconds: 600
+  resources:
+    limits:
+      cpu: 500m
+      memory: 256Mi
+    requests:
+      cpu: 50m
+      memory: 128Mi
+
 # Persistent volumes
 persistence:
   enabled: true

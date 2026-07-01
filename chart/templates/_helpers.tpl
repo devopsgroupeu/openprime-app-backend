@@ -60,3 +60,31 @@ Create the name of the service account to use
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
 {{- end }}
+
+{{/*
+Container env vars (plain values + secret refs), shared by the Deployment and the
+migration Job so both always run against the same configuration/secret.
+*/}}
+{{- define "openprime-app-backend.env" -}}
+{{- range $key, $value := .Values.app.env }}
+- name: {{ $key }}
+  value: {{ $value | quote }}
+{{- end }}
+{{- if .Values.app.existingSecret }}
+{{- range .Values.app.existingSecretKeys }}
+- name: {{ . }}
+  valueFrom:
+    secretKeyRef:
+      name: {{ $.Values.app.existingSecret }}
+      key: {{ . }}
+{{- end }}
+{{- else if .Values.app.secrets }}
+{{- range $key, $value := .Values.app.secrets }}
+- name: {{ $key }}
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "openprime-app-backend.fullname" $ }}-secrets
+      key: {{ $key }}
+{{- end }}
+{{- end }}
+{{- end }}
