@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.0](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.4.10...v1.5.0) (2026-07-01)
+
+### 🚀 Features
+
+* **db:** replace sequelize.sync with umzug migrations ([#8](https://github.com/devopsgroupeu/openprime-app-backend/issues/8)) ([0aecf0f](https://github.com/devopsgroupeu/openprime-app-backend/commit/0aecf0f62142150b10b7afa4d63060e801733108))
+
 ## [1.4.10](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.4.9...v1.4.10) (2026-06-29)
 
 ### 📚 Documentation
