@@ -11,6 +11,7 @@ const { requestLogger } = require("./middleware/requestLogger");
 const { logger } = require("./utils/logger");
 const routes = require("./routes");
 const { initializeDatabase, closeConnection } = require("./config/database");
+const { migrateOnStartup } = require("./config/umzug");
 
 // Validate required environment variables
 const requiredEnvVars = ["PORT", "FRONTEND_URL"];
@@ -79,6 +80,9 @@ async function startServer() {
     // Initialize database connection and models
     await initializeDatabase();
     logger.info("Database initialized successfully");
+
+    // Apply (dev) or validate (prod) schema migrations before serving traffic
+    await migrateOnStartup();
 
     // Start the server
     const server = app.listen(PORT, () => {
