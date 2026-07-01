@@ -47,19 +47,16 @@ async function testConnection() {
   }
 }
 
-// Initialize database
+// Initialize database connection.
+// Schema is owned by migrations (see config/umzug.js + src/migrations/), not by
+// sequelize.sync — this only verifies connectivity. server.js runs
+// migrateOnStartup() afterwards to apply/validate the schema.
 async function initializeDatabase() {
   try {
-    // Test connection first
     const connected = await testConnection();
     if (!connected) {
       throw new Error("Database connection failed");
     }
-
-    // Sync database (create tables)
-    await sequelize.sync({ alter: process.env.NODE_ENV === "development" });
-    logger.info("Database synchronized successfully.");
-
     return true;
   } catch (error) {
     logger.error("Database initialization failed:", error);
