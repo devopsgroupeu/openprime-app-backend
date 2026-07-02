@@ -164,6 +164,7 @@ class EnvironmentService {
   async generateInfrastructure(environment) {
     try {
       const injectoUrl = process.env.INJECTO_SERVICE_URL;
+      const serviceToken = process.env.SERVICE_TOKEN;
 
       // Prepare configuration data for Injecto
       const configData = this.prepareInjectoData(environment);
@@ -190,6 +191,7 @@ class EnvironmentService {
           timeout: 60000,
           headers: {
             "Content-Type": "application/json",
+            ...(serviceToken && { "X-Service-Token": serviceToken }),
           },
         },
       );
