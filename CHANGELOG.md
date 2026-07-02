@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.6.0](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.5.0...v1.6.0) (2026-07-02)
+
+### 🚀 Features
+
+* security hardening + availability (PDB, graceful shutdown) ([#9](https://github.com/devopsgroupeu/openprime-app-backend/issues/9)) ([bb91e13](https://github.com/devopsgroupeu/openprime-app-backend/commit/bb91e130a8299123f1dcbb0b419761d622245140))
+
 ## [1.5.0](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.4.10...v1.5.0) (2026-07-01)
 
 ### 🚀 Features
