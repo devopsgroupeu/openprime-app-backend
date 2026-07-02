@@ -4,6 +4,23 @@
 
 replicaCount: 2
 
+# Pod Disruption Budget - keeps at least one replica available during voluntary
+# disruptions (node drains, cluster upgrades). Safe because this service runs
+# >=2 replicas. To protect a single stateful replica instead, set
+# maxUnavailable: 0 (blocks voluntary eviction; requires manual node drains).
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# Graceful shutdown - a preStop delay lets the load balancer deregister this
+# pod's endpoint before SIGTERM, avoiding 5xx during rollouts/scale-down.
+# terminationGracePeriodSeconds bounds the total shutdown window (note: a
+# synchronous git push can exceed this — the async job model is the real fix).
+terminationGracePeriodSeconds: 45
+gracefulShutdown:
+  enabled: true
+  preStopSleepSeconds: 15
+
 image:
   repository: ghcr.io/devopsgroupeu/openprime-app-backend
   pullPolicy: IfNotPresent
@@ -196,7 +213,7 @@ healthCheck:
     failureThreshold: 3
   readinessProbe:
     httpGet:
-      path: /health
+      path: /ready
       port: http
     initialDelaySeconds: 10
     periodSeconds: 5

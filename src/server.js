@@ -10,7 +10,7 @@ const { errorHandler } = require("./middleware/errorHandler");
 const { requestLogger } = require("./middleware/requestLogger");
 const { logger } = require("./utils/logger");
 const routes = require("./routes");
-const { initializeDatabase, closeConnection } = require("./config/database");
+const { sequelize, initializeDatabase, closeConnection } = require("./config/database");
 const { migrateOnStartup } = require("./config/umzug");
 
 // Validate required environment variables
@@ -19,6 +19,16 @@ for (const envVar of requiredEnvVars) {
   if (!process.env[envVar]) {
     throw new Error(`Missing required environment variable: ${envVar}`);
   }
+}
+
+// Fail closed if global TLS verification was disabled in production. Setting
+// NODE_TLS_REJECT_UNAUTHORIZED=0 turns off certificate checks for every
+// outbound HTTPS call (Keycloak JWKS, AWS, git, Bedrock), enabling MITM and
+// token forgery — never acceptable in a deployed environment.
+if (process.env.NODE_ENV === "production" && process.env.NODE_TLS_REJECT_UNAUTHORIZED === "0") {
+  throw new Error(
+    "NODE_TLS_REJECT_UNAUTHORIZED=0 is not allowed in production (disables all TLS verification). Mount a CA bundle instead.",
+  );
 }
 
 const app = express();
@@ -54,13 +64,32 @@ app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 // Request logging with correlation ID
 app.use(requestLogger);
 
-// Health check
+// Liveness: cheap, dependency-free signal that the process is up.
 app.get("/health", (req, res) => {
   res.status(200).json({
     status: "healthy",
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
   });
+});
+
+// Readiness: Kubernetes routes traffic only when this passes. It verifies the
+// database is reachable so a DB outage sheds load (503) instead of returning
+// 500s to users.
+app.get("/ready", async (req, res) => {
+  const log = req.log || logger;
+  try {
+    await Promise.race([
+      sequelize.authenticate(),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("readiness check timed out")), 2500),
+      ),
+    ]);
+    res.status(200).json({ status: "ready" });
+  } catch (error) {
+    log.warn("Readiness check failed", { error: error.message });
+    res.status(503).json({ status: "not ready" });
+  }
 });
 
 // API routes

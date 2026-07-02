@@ -94,13 +94,15 @@ class CloudCredentialController {
         return res.status(404).json({ error: "Credential not found" });
       }
 
+      // Never return decrypted secret material to the client. Decryption stays
+      // server-side (StateCraft/git operations); the edit form treats blank
+      // secret fields as "keep the stored credentials".
       res.json({
         credential: {
           id: credential.id,
           provider: credential.provider,
           name: credential.name,
           identifier: credential.identifier,
-          credentials: credential.credentials,
           isDefault: credential.is_default,
           lastValidated: credential.last_validated,
           createdAt: credential.createdAt,
