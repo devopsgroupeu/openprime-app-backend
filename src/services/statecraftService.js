@@ -7,6 +7,8 @@ class StateCraftService {
       throw new Error("Missing required environment variable: STATECRAFT_SERVICE_URL");
     }
     this.statecraftUrl = process.env.STATECRAFT_SERVICE_URL;
+    // Shared service token sent to StateCraft (auth enforced once both sides configure it).
+    this.serviceToken = process.env.SERVICE_TOKEN;
   }
 
   async createBackendResources(config) {
@@ -38,7 +40,10 @@ class StateCraftService {
       logger.info("Creating Terraform backend resources", { bucketName, lockingMechanism, region });
 
       const response = await axios.post(`${this.statecraftUrl}/resources/create`, requestData, {
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(this.serviceToken && { "X-Service-Token": this.serviceToken }),
+        },
         timeout: 60000,
       });
 
@@ -89,7 +94,10 @@ class StateCraftService {
       logger.info("Deleting Terraform backend resources", { bucketName, lockingMechanism, region });
 
       const response = await axios.post(`${this.statecraftUrl}/resources/delete`, requestData, {
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(this.serviceToken && { "X-Service-Token": this.serviceToken }),
+        },
         timeout: 60000,
       });
 
