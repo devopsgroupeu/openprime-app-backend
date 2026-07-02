@@ -108,7 +108,13 @@ class CloudCredentialService {
       const updateFields = {};
       if (updateData.name !== undefined) updateFields.name = updateData.name;
       if (updateData.identifier !== undefined) updateFields.identifier = updateData.identifier;
-      if (updateData.credentials !== undefined) updateFields.credentials = updateData.credentials;
+      // Only overwrite stored secrets when the update actually provides them; an
+      // empty/absent credentials object preserves the existing secret (the edit
+      // form sends blanks to mean "keep current" since secrets are never
+      // returned to the client).
+      if (updateData.credentials?.accessKey || updateData.credentials?.secretKey) {
+        updateFields.credentials = updateData.credentials;
+      }
       if (updateData.isDefault !== undefined) updateFields.is_default = updateData.isDefault;
 
       await credential.update(updateFields);

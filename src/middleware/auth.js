@@ -17,7 +17,20 @@ const keycloakConfig = {
   allowedIssuers: process.env.KEYCLOAK_JWT_ISSUERS
     ? process.env.KEYCLOAK_JWT_ISSUERS.split(",").map((iss) => iss.trim())
     : [`${process.env.KEYCLOAK_URL}/realms/${process.env.KEYCLOAK_REALM}`],
+  // Restrict which OIDC clients the API trusts. Keycloak sets `azp` to the
+  // client that obtained the token, so we can reject tokens minted for other
+  // clients in the realm without needing a realm audience mapper.
+  allowedClients: (process.env.KEYCLOAK_ALLOWED_CLIENTS || process.env.KEYCLOAK_CLIENT_ID || "")
+    .split(",")
+    .map((c) => c.trim())
+    .filter(Boolean),
 };
+
+if (keycloakConfig.allowedClients.length === 0) {
+  logger.warn(
+    "Audience validation disabled: set KEYCLOAK_CLIENT_ID (or KEYCLOAK_ALLOWED_CLIENTS) to restrict which OIDC clients the API accepts",
+  );
+}
 
 logger.debug("Keycloak configuration", { config: keycloakConfig });
 logger.debug("JWKS URI", {
@@ -37,6 +50,15 @@ const client = jwksClient({
       ? require("https").Agent({ rejectUnauthorized: false })
       : undefined,
 });
+
+// Pure check: is this token's authorized-party (azp) or audience (aud) one of
+// the clients we trust? An empty allow-list means validation is disabled and
+// every client is accepted (returns true).
+function isAllowedClient(decoded, allowedClients) {
+  if (allowedClients.length === 0) return true;
+  const aud = Array.isArray(decoded.aud) ? decoded.aud : decoded.aud ? [decoded.aud] : [];
+  return allowedClients.includes(decoded.azp) || aud.some((a) => allowedClients.includes(a));
+}
 
 function getKey(header, callback) {
   client.getSigningKey(header.kid, (err, key) => {
@@ -85,6 +107,16 @@ const authenticateToken = async (req, res, next) => {
           return res.status(401).json({ error: "Invalid or expired token" });
         }
 
+        // Reject tokens minted for other clients in the realm. Signature/issuer
+        // alone accept any token the realm signs; azp/aud pins it to our client.
+        if (!isAllowedClient(decoded, keycloakConfig.allowedClients)) {
+          log.warn("Token rejected: azp/aud not in allowed clients", {
+            azp: decoded.azp,
+            aud: decoded.aud,
+          });
+          return res.status(401).json({ error: "Invalid or expired token" });
+        }
+
         req.user = {
           id: decoded.sub,
           username: decoded.preferred_username,
@@ -124,4 +156,5 @@ const requireRole = (role) => {
 module.exports = {
   authenticateToken,
   requireRole,
+  isAllowedClient,
 };
