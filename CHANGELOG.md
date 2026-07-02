@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.7.0](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.6.0...v1.7.0) (2026-07-02)
+
+### 🚀 Features
+
+* send X-Service-Token to Injecto and StateCraft ([#10](https://github.com/devopsgroupeu/openprime-app-backend/issues/10)) ([c3793a2](https://github.com/devopsgroupeu/openprime-app-backend/commit/c3793a2b0d292d420fae05e0c7aa5d65b3706916))
+
 ## [1.6.0](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.5.0...v1.6.0) (2026-07-02)
 
 ### 🚀 Features
