@@ -283,6 +283,9 @@ exports.createTerraformBackend = async (req, res, next) => {
       lockingMechanism: "s3",
       awsAccessKeyId,
       awsSecretAccessKey,
+      // Ownership metadata → tagged onto the bucket (OpenPrimeEnv / Owner).
+      environment: sanitizedEnvName,
+      owner: user.id,
     };
 
     req.log.info("Creating Terraform backend", { userId: user.id, bucketName, region });

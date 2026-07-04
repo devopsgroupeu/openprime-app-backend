@@ -28,6 +28,10 @@ class StateCraftService {
         locking_mechanism: lockingMechanism,
       };
 
+      // Ownership tags on the created bucket (used later by the delete guard).
+      if (config.environment) requestData.environment = config.environment;
+      if (config.owner) requestData.owner = config.owner;
+
       if (lockingMechanism === "dynamodb" && tableName) {
         requestData.table_name = tableName;
       }
@@ -80,6 +84,8 @@ class StateCraftService {
         region,
         bucket_name: bucketName,
         locking_mechanism: lockingMechanism,
+        // Required by StateCraft's delete guard: confirm must equal bucket_name.
+        confirm: bucketName,
       };
 
       if (lockingMechanism === "dynamodb" && tableName) {
