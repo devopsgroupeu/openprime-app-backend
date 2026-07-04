@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.8.0](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.7.0...v1.8.0) (2026-07-04)
+
+### 🚀 Features
+
+* send confirm + ownership metadata to StateCraft resource ops ([#11](https://github.com/devopsgroupeu/openprime-app-backend/issues/11)) ([244857b](https://github.com/devopsgroupeu/openprime-app-backend/commit/244857b1a9b793b3f5e5b025d516ae581b9e1db2))
+
 ## [1.7.0](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.6.0...v1.7.0) (2026-07-02)
 
 ### 🚀 Features
