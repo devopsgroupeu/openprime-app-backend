@@ -1,11 +1,35 @@
 const winston = require("winston");
 const path = require("path");
 const crypto = require("crypto");
+const { redact, maskUrlAuth, isSensitiveKey } = require("./redact");
 
 // Validate required environment variables
 if (!process.env.LOG_LEVEL) {
   throw new Error("Missing required environment variable: LOG_LEVEL");
 }
+
+// Fail closed on verbose logging in production. Levels below "info" (debug,
+// verbose, silly) risk dumping request bodies and generated configs; redaction
+// scrubs known secrets, but banning these levels keeps them out of prod entirely.
+const VERBOSE_LEVELS = new Set(["debug", "verbose", "silly"]);
+if (process.env.NODE_ENV === "production" && VERBOSE_LEVELS.has(process.env.LOG_LEVEL)) {
+  throw new Error(
+    `LOG_LEVEL=${process.env.LOG_LEVEL} is not allowed in production (risks logging sensitive data). Use info, warn, or error.`,
+  );
+}
+
+// Winston format that redacts secrets from every log record before serialization.
+// Applied to all transports (file + console) since transport-level formats do not
+// inherit the logger format. Winston's own fields are left untouched.
+const RESERVED_FIELDS = new Set(["level", "message", "timestamp", "service", "stack"]);
+const redactFormat = winston.format((info) => {
+  for (const key of Object.keys(info)) {
+    if (RESERVED_FIELDS.has(key)) continue;
+    info[key] = isSensitiveKey(key) ? "[REDACTED]" : redact(info[key]);
+  }
+  info.message = maskUrlAuth(info.message);
+  return info;
+});
 
 // Determine if file logging should be enabled
 // In Kubernetes, we only use console logging (logs are collected by Loki)
@@ -35,6 +59,7 @@ const logger = winston.createLogger({
     }),
     winston.format.errors({ stack: true }),
     winston.format.splat(),
+    redactFormat(),
     winston.format.json(),
   ),
   defaultMeta: { service: "openprime-backend" },
@@ -50,8 +75,8 @@ const shouldLogToConsole =
 if (shouldLogToConsole) {
   const consoleFormat =
     process.env.NODE_ENV === "production"
-      ? winston.format.combine(winston.format.timestamp(), winston.format.simple())
-      : winston.format.combine(winston.format.colorize(), winston.format.simple());
+      ? winston.format.combine(redactFormat(), winston.format.timestamp(), winston.format.simple())
+      : winston.format.combine(redactFormat(), winston.format.colorize(), winston.format.simple());
 
   logger.add(new winston.transports.Console({ format: consoleFormat }));
 }
