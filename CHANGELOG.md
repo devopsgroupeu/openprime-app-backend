@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.8.1](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.8.0...v1.8.1) (2026-07-07)
+
+### ♻️ Code Refactoring
+
+* **auth:** remove dead NODE_TLS_REJECT_UNAUTHORIZED bypass in JWKS client ([#12](https://github.com/devopsgroupeu/openprime-app-backend/issues/12)) ([df31558](https://github.com/devopsgroupeu/openprime-app-backend/commit/df3155836320d1feefa040638193d50f1327ac7f))
+
 ## [1.8.0](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.7.0...v1.8.0) (2026-07-04)
 
 ### 🚀 Features
