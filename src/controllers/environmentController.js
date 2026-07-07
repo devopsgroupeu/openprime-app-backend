@@ -64,9 +64,11 @@ exports.createEnvironment = async (req, res, next) => {
 
     req.log.info("Creating environment", { userId: user.id, username: user.username });
 
-    // Convert to YAML format for logging/processing
+    // Convert to YAML format for processing. Don't log the YAML body: it embeds
+    // the user's SSH key and cloud credentials as string content, which key-based
+    // redaction can't reach — log only its size.
     const yamlData = await environmentService.convertToYAML(environmentData);
-    req.log.debug("Environment YAML generated", { yaml: yamlData });
+    req.log.debug("Environment YAML generated", { bytes: Buffer.byteLength(yamlData, "utf8") });
 
     // Save environment with original data
     const environment = await environmentService.createEnvironment(environmentData);
