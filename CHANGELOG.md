@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.9.0](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.8.1...v1.9.0) (2026-07-07)
+
+### 🚀 Features
+
+* **logging:** redact secrets from all log output and ban debug in production ([#13](https://github.com/devopsgroupeu/openprime-app-backend/issues/13)) ([99f45de](https://github.com/devopsgroupeu/openprime-app-backend/commit/99f45ded8fd99dae8cde3fe84724e5256685e6f3))
+
 ## [1.8.1](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.8.0...v1.8.1) (2026-07-07)
 
 ### ♻️ Code Refactoring
