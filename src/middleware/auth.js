@@ -45,10 +45,6 @@ const client = jwksClient({
   rateLimit: true,
   jwksRequestsPerMinute: 10,
   jwksRequestTimeout: 30000,
-  requestAgent:
-    process.env.NODE_TLS_REJECT_UNAUTHORIZED === "0"
-      ? require("https").Agent({ rejectUnauthorized: false })
-      : undefined,
 });
 
 // Pure check: is this token's authorized-party (azp) or audience (aud) one of
