@@ -2,6 +2,7 @@ const winston = require("winston");
 const path = require("path");
 const crypto = require("crypto");
 const { redact, maskUrlAuth, isSensitiveKey } = require("./redact");
+const { getRequestId } = require("./requestContext");
 
 // Validate required environment variables
 if (!process.env.LOG_LEVEL) {
@@ -28,6 +29,17 @@ const redactFormat = winston.format((info) => {
     info[key] = isSensitiveKey(key) ? "[REDACTED]" : redact(info[key]);
   }
   info.message = maskUrlAuth(info.message);
+  return info;
+});
+
+// Stamp the current request's correlation id onto records that don't already carry
+// one (i.e. module-level logger calls in services), so all logs for a request —
+// and the Injecto/StateCraft logs it triggers — share one requestId.
+const requestIdFormat = winston.format((info) => {
+  if (!info.requestId) {
+    const requestId = getRequestId();
+    if (requestId) info.requestId = requestId;
+  }
   return info;
 });
 
@@ -59,6 +71,7 @@ const logger = winston.createLogger({
     }),
     winston.format.errors({ stack: true }),
     winston.format.splat(),
+    requestIdFormat(),
     redactFormat(),
     winston.format.json(),
   ),
@@ -73,10 +86,18 @@ const shouldLogToConsole =
   (process.env.NODE_ENV !== "production" || process.env.CONSOLE_LOGGING === "true");
 
 if (shouldLogToConsole) {
-  const consoleFormat =
-    process.env.NODE_ENV === "production"
-      ? winston.format.combine(redactFormat(), winston.format.timestamp(), winston.format.simple())
-      : winston.format.combine(redactFormat(), winston.format.colorize(), winston.format.simple());
+  // Console emits the same structured JSON as the file transports and the Python
+  // services — one common format everywhere (local and prod) so Loki, and any
+  // developer, sees every service the same way. Pipe through `jq` for pretty local
+  // reading if desired.
+  const consoleFormat = winston.format.combine(
+    winston.format.timestamp({ format: "YYYY-MM-DD HH:mm:ss" }),
+    winston.format.errors({ stack: true }),
+    winston.format.splat(),
+    requestIdFormat(),
+    redactFormat(),
+    winston.format.json(),
+  );
 
   logger.add(new winston.transports.Console({ format: consoleFormat }));
 }

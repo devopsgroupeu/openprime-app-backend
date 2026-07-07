@@ -1,5 +1,6 @@
 const axios = require("axios");
 const { logger } = require("../utils/logger");
+const { getRequestId } = require("../utils/requestContext");
 
 class StateCraftService {
   constructor() {
@@ -47,6 +48,7 @@ class StateCraftService {
         headers: {
           "Content-Type": "application/json",
           ...(this.serviceToken && { "X-Service-Token": this.serviceToken }),
+          ...(getRequestId() && { "X-Request-ID": getRequestId() }),
         },
         timeout: 60000,
       });
@@ -103,6 +105,7 @@ class StateCraftService {
         headers: {
           "Content-Type": "application/json",
           ...(this.serviceToken && { "X-Service-Token": this.serviceToken }),
+          ...(getRequestId() && { "X-Request-ID": getRequestId() }),
         },
         timeout: 60000,
       });

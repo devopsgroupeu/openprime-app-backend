@@ -1,4 +1,5 @@
 const { generateRequestId, createRequestLogger } = require("../utils/logger");
+const { runWithRequestId } = require("../utils/requestContext");
 
 /**
  * Middleware to add request correlation ID and scoped logger to each request.
@@ -39,7 +40,9 @@ function requestLogger(req, res, next) {
     });
   });
 
-  next();
+  // Run the rest of the request within the correlation-id context so services and
+  // the logger can read the requestId (and forward it to Injecto/StateCraft).
+  runWithRequestId(requestId, () => next());
 }
 
 module.exports = { requestLogger };

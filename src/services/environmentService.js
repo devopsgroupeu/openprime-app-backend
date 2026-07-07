@@ -2,6 +2,7 @@
 const yaml = require("js-yaml");
 const axios = require("axios");
 const { logger } = require("../utils/logger");
+const { getRequestId } = require("../utils/requestContext");
 const { Environment } = require("../models");
 const fs = require("node:fs");
 const os = require("node:os");
@@ -192,6 +193,7 @@ class EnvironmentService {
           headers: {
             "Content-Type": "application/json",
             ...(serviceToken && { "X-Service-Token": serviceToken }),
+            ...(getRequestId() && { "X-Request-ID": getRequestId() }),
           },
         },
       );
