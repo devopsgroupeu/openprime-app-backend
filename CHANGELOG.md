@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.10.0](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.9.0...v1.10.0) (2026-07-07)
+
+### 🚀 Features
+
+* **logging:** unified JSON logs with cross-service request-id correlation ([#14](https://github.com/devopsgroupeu/openprime-app-backend/issues/14)) ([4d4ce84](https://github.com/devopsgroupeu/openprime-app-backend/commit/4d4ce846a19e082ceb7fbf40b1ef7fc8497ff9ad))
+
 ## [1.9.0](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.8.1...v1.9.0) (2026-07-07)
 
 ### 🚀 Features
