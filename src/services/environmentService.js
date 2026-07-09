@@ -316,11 +316,6 @@ class EnvironmentService {
       });
     }
 
-    // Add Helm charts if available
-    if (environment.helmCharts) {
-      data.helmCharts = environment.helmCharts;
-    }
-
     return data;
   }
 }
