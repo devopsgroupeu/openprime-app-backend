@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.10.1](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.10.0...v1.10.1) (2026-07-09)
+
+### ♻️ Code Refactoring
+
+* remove dead top-level helmCharts read in prepareInjectoData ([#15](https://github.com/devopsgroupeu/openprime-app-backend/issues/15)) ([643fede](https://github.com/devopsgroupeu/openprime-app-backend/commit/643fedead1817aef325eb52120e566f53e42d30e))
+
 ## [1.10.0](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.9.0...v1.10.0) (2026-07-07)
 
 ### 🚀 Features
