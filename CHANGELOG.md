@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.10.2](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.10.1...v1.10.2) (2026-07-11)
+
+### 🐛 Bug Fixes
+
+* **backend:** scope Terraform state key per environment to prevent stale-state adoption ([#16](https://github.com/devopsgroupeu/openprime-app-backend/issues/16)) ([7fd67e7](https://github.com/devopsgroupeu/openprime-app-backend/commit/7fd67e7543d5469dba9332299b26684f9747b3fe))
+
 ## [1.10.1](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.10.0...v1.10.1) (2026-07-09)
 
 ### ♻️ Code Refactoring
