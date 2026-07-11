@@ -63,6 +63,13 @@ const Environment = sequelize.define(
       defaultValue: null,
       comment: "Git repository configuration (URL, SSH key)",
     },
+    state_key: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      defaultValue: null,
+      comment:
+        "Per-environment Terraform state key prefix (env/<id>). NULL = legacy fixed key (aws.tfstate) for environments created before this column existed.",
+    },
     user_id: {
       type: DataTypes.UUID,
       allowNull: true,

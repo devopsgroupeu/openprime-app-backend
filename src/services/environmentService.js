@@ -33,6 +33,12 @@ class EnvironmentService {
       };
 
       const environment = await Environment.create(environmentData);
+
+      // Scope the Terraform state key to this environment so a deleted+recreated
+      // (or same-named) environment cannot silently adopt the previous one's
+      // state and plan destruction of still-live infrastructure.
+      await environment.update({ state_key: `env/${environment.id}` });
+
       logger.info("Environment created", { environmentId: environment.id, userId: data.user_id });
 
       return environment.toJSON();
@@ -273,6 +279,16 @@ class EnvironmentService {
 
   prepareInjectoData(environment) {
     // Transform environment configuration to Injecto-compatible format
+
+    // Per-environment Terraform state keys. NULL state_key = an environment
+    // created before this scoping existed -> keep the legacy fixed keys so its
+    // already-deployed state stays reachable.
+    const stateKeyPrefix = environment.state_key || null;
+    const awsStateKey = stateKeyPrefix ? `${stateKeyPrefix}/aws.tfstate` : "aws.tfstate";
+    const kubernetesStateKey = stateKeyPrefix
+      ? `${stateKeyPrefix}/kubernetes.tfstate`
+      : "kubernetes.tfstate";
+
     const terraformBackend = environment.terraform_backend
       ? {
           ...environment.terraform_backend,
@@ -283,6 +299,9 @@ class EnvironmentService {
             environment.terraform_backend.encrypt !== undefined
               ? environment.terraform_backend.encrypt
               : true,
+          // Scoped state keys substituted into the generated backend blocks
+          awsStateKey,
+          kubernetesStateKey,
         }
       : null;
 
