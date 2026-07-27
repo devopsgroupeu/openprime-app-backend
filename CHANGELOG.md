@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.10.3](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.10.2...v1.10.3) (2026-07-27)
+
+### 🐛 Bug Fixes
+
+* **environments:** reject name and global_prefix changes on update ([#18](https://github.com/devopsgroupeu/openprime-app-backend/issues/18)) ([a79e3c6](https://github.com/devopsgroupeu/openprime-app-backend/commit/a79e3c6b77f62773d0ee060c787aefb99a9f9a79))
+
 ## [1.10.2](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.10.1...v1.10.2) (2026-07-11)
 
 ### 🐛 Bug Fixes
