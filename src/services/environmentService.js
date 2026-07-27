@@ -107,10 +107,24 @@ class EnvironmentService {
         return null;
       }
 
+      // name and global_prefix are baked into every generated Terraform resource
+      // name, so changing them on an existing environment turns the next apply
+      // into a full destroy/recreate. They are immutable: an identical value (or
+      // none) is accepted so the wizard can post the whole environment back, but
+      // a differing value is rejected rather than silently ignored.
+      const immutable = { name: "name", globalPrefix: "global_prefix" };
+      for (const [field, column] of Object.entries(immutable)) {
+        const submitted = data[field];
+        if (submitted !== undefined && submitted !== environment[column]) {
+          const error = new Error(`${field} cannot be changed after the environment is created`);
+          error.status = 400;
+          throw error;
+        }
+      }
+
       const updateData = {
-        name: data.name,
-        global_prefix:
-          data.globalPrefix !== undefined ? data.globalPrefix : environment.global_prefix,
+        name: environment.name,
+        global_prefix: environment.global_prefix,
         provider: data.provider || data.type,
         region: data.region,
         location: data.location || data.region,
