@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.10.5](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.10.4...v1.10.5) (2026-08-10)
+
+### 🐛 Bug Fixes
+
+* compare database ids in the self-deactivation guard (OP-192) ([#21](https://github.com/devopsgroupeu/openprime-app-backend/issues/21)) ([73769d9](https://github.com/devopsgroupeu/openprime-app-backend/commit/73769d9c73b4f54fabbdac869b6f6cf1dc59b4ae))
+
+### 📚 Documentation
+
+* correct multi-cloud overclaim to AWS-first (OP-149) ([#20](https://github.com/devopsgroupeu/openprime-app-backend/issues/20)) ([ba66880](https://github.com/devopsgroupeu/openprime-app-backend/commit/ba668805bbe2dc89e2ced466c8d0a912c076a510))
+
 ## [1.10.4](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.10.3...v1.10.4) (2026-08-10)
 
 ### 🐛 Bug Fixes
