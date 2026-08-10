@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.12.0](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.11.1...v1.12.0) (2026-08-10)
+
+### 🚀 Features
+
+* surface Injecto generation failures as an actionable 422 (OP-214) ([#24](https://github.com/devopsgroupeu/openprime-app-backend/issues/24)) ([2d06bc2](https://github.com/devopsgroupeu/openprime-app-backend/commit/2d06bc2e6dac0f9e7d39575e8e99f82aaba78be8))
+
 ## [1.11.1](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.11.0...v1.11.1) (2026-08-10)
 
 ### 🐛 Bug Fixes
