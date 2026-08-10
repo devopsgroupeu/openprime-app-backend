@@ -9,7 +9,7 @@ Backend service for OpenPrime Infrastructure Deployment Platform.
 - Integration with Python processing service
 - Helm chart management and validation
 - Terraform generation and validation
-- Multi-cloud support (AWS, Azure, GCP, On-premise)
+- AWS infrastructure support (Azure, GCP and on-premise are on the roadmap)
 - Security middleware (helmet, CORS, rate limiting)
 - Comprehensive logging and error handling
 
