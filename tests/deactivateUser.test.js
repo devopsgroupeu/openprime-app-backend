@@ -31,9 +31,7 @@ describe("deactivateUser — self-deactivation guard", () => {
       .mockResolvedValue({ id: CALLER_DB_ID, username: "admin" });
     userService.deactivateUser = jest
       .fn()
-      .mockImplementation((id) =>
-        Promise.resolve({ id, username: "target", is_active: false }),
-      );
+      .mockImplementation((id) => Promise.resolve({ id, username: "target", is_active: false }));
   });
 
   it("rejects deactivating your own account with 400", async () => {
