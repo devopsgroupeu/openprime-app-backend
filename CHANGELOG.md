@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.10.4](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.10.3...v1.10.4) (2026-08-10)
+
+### 🐛 Bug Fixes
+
+* log unhandled rejections and uncaught exceptions before exiting ([#19](https://github.com/devopsgroupeu/openprime-app-backend/issues/19)) ([60f28b1](https://github.com/devopsgroupeu/openprime-app-backend/commit/60f28b108a6dd64e6a29adabf8308f5e6d34ba7a))
+
 ## [1.10.3](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.10.2...v1.10.3) (2026-07-27)
 
 ### 🐛 Bug Fixes
