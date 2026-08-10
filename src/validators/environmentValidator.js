@@ -23,10 +23,17 @@ exports.validateEnvironment = [
 
   // Baked into every generated Terraform resource name, so it has to be
   // machine-shaped. Immutable after creation (see updateEnvironmentByUser).
+  //
+  // The bound must not be stricter than what the wizard can produce. It
+  // auto-suggests the prefix from the environment name by stripping everything
+  // outside [a-z0-9] and appending '-', and names run to 50 characters — so a
+  // long name yields a 51-character prefix. An all-punctuation name yields an
+  // empty one, hence `values: "falsy"`. 63 is the ceiling most AWS resource
+  // names allow, which is the real constraint here.
   body("globalPrefix")
-    .optional()
-    .matches(/^[A-Za-z0-9][A-Za-z0-9-]{0,31}$/)
-    .withMessage("Global prefix must be alphanumeric with hyphens, max 32 characters"),
+    .optional({ values: "falsy" })
+    .matches(/^[A-Za-z0-9][A-Za-z0-9-]{0,62}$/)
+    .withMessage("Global prefix must be alphanumeric with hyphens, max 63 characters"),
 
   body("gitRepository.url")
     .optional({ values: "falsy" })
