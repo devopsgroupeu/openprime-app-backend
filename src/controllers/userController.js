@@ -114,7 +114,12 @@ class UserController {
     try {
       const { userId } = req.params;
 
-      if (userId === req.user.id) {
+      // `req.user.id` is the Keycloak subject; `:userId` is the database primary
+      // key this route passes to findByPk. They are different identifiers, so
+      // comparing them directly never matched and the guard never fired. Resolve
+      // the caller first, the way every other controller here does.
+      const caller = await userService.getUserByKeycloakId(req.user.id);
+      if (caller && String(caller.id) === String(userId)) {
         return res.status(400).json({ error: "Cannot deactivate your own account" });
       }
 
