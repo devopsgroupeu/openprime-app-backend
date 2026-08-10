@@ -9,6 +9,7 @@ const os = require("node:os");
 const path = require("node:path");
 const AdmZip = require("adm-zip");
 const simpleGit = require("simple-git");
+const { validateGitRepositoryUrl } = require("../validators/gitUrl");
 
 // Validate required environment variable
 if (!process.env.INJECTO_SERVICE_URL) {
@@ -247,10 +248,21 @@ class EnvironmentService {
       const sshKey = git_repository.sshKey.replace(/\\n/g, "\n").trim() + "\n";
       await fs.promises.writeFile(keyDir, sshKey, { mode: 0o600 });
 
-      const git = simpleGit().env(
-        "GIT_SSH_COMMAND",
-        `ssh -i ${keyDir} -o StrictHostKeyChecking=no`,
-      );
+      // Validated again at the point of use, not only at the API boundary: an
+      // environment stored before the validator existed still reaches this line.
+      const urlCheck = validateGitRepositoryUrl(git_repository.url);
+      if (!urlCheck.valid) {
+        throw new Error(`Invalid repository URL: ${urlCheck.reason}`);
+      }
+
+      const git = simpleGit().env({
+        ...process.env,
+        GIT_SSH_COMMAND: `ssh -i ${keyDir} -o StrictHostKeyChecking=no`,
+        // Defence in depth behind the validator: even if a URL slips through,
+        // git itself will refuse any transport outside this list — including
+        // file:// and bare local paths, which clone happily by default.
+        GIT_ALLOW_PROTOCOL: "https:ssh",
+      });
 
       // Clone user repo
       logger.info("Cloning user repository", { url: git_repository.url });
