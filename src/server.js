@@ -137,6 +137,25 @@ async function startServer() {
         process.exit(0);
       });
     });
+
+    // Crash visibility. Node already terminates on an unhandled rejection, so
+    // without these the pod restarts with no record of why - the log line, not
+    // the exit, is the point. State is undefined after either event, so we let
+    // the process die and Kubernetes start a clean one rather than continuing.
+    const exitOnFatal = (event) => (err) => {
+      logger.error(`${event}, exiting`, {
+        error: err instanceof Error ? err.message : String(err),
+        stack: err instanceof Error ? err.stack : undefined,
+      });
+      // Give the transport a tick to flush; stdout to a pipe is async in Node,
+      // so exiting in the same turn can drop the line we just wrote. Not
+      // unref'd on purpose - the timer must hold the loop open long enough to
+      // guarantee exit code 1 rather than a natural exit 0.
+      setTimeout(() => process.exit(1), 100);
+    };
+
+    process.on("unhandledRejection", exitOnFatal("Unhandled promise rejection"));
+    process.on("uncaughtException", exitOnFatal("Uncaught exception"));
   } catch (error) {
     logger.error("Failed to start server:", error);
     process.exit(1);
