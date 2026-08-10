@@ -163,7 +163,17 @@ exports.generateInfrastructure = async (req, res, next) => {
     req.log.error("Failed to generate infrastructure", {
       environmentId: req.params.id,
       error: error.message,
+      code: error.code,
     });
+    // A refused generation is the user's problem to act on, not a server fault —
+    // answer with the specific reason rather than a generic 500 (OP-214).
+    if (error.statusCode === 422) {
+      return res.status(422).json({
+        error: error.message,
+        code: error.code,
+        details: error.details,
+      });
+    }
     next(error);
   }
 };

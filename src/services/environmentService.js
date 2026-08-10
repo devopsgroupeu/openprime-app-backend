@@ -10,6 +10,7 @@ const path = require("node:path");
 const AdmZip = require("adm-zip");
 const simpleGit = require("simple-git");
 const { validateGitRepositoryUrl } = require("../validators/gitUrl");
+const { parseGenerationFailure, generationError } = require("../utils/generationErrors");
 
 // Validate required environment variable
 if (!process.env.INJECTO_SERVICE_URL) {
@@ -222,12 +223,24 @@ class EnvironmentService {
       logger.info("Infrastructure generated", { environmentId: environment.id });
       return Buffer.from(response.data);
     } catch (error) {
+      // A 422 means Injecto processed the templates but refused to hand over the
+      // result because it would have been silently wrong. That carries a code the
+      // user can act on; anything else stays a 500 (OP-214).
+      const failure =
+        error.response?.status === 422 ? parseGenerationFailure(error.response.data) : null;
+
       logger.error("Injecto service call failed", {
         error: error.message,
         environmentId: environment.id,
         status: error.response?.status,
-        responseData: error.response?.data?.toString(),
+        generationFailureCode: failure?.code,
+        generationFailureDetails: failure?.details,
       });
+
+      if (failure) {
+        throw generationError(failure);
+      }
+
       throw new Error(`Failed to generate infrastructure: ${error.message}`, {
         cause: error,
       });
