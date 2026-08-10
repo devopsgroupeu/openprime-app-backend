@@ -21,6 +21,19 @@ for (const envVar of requiredEnvVars) {
   }
 }
 
+// Fail fast on a malformed credential encryption key. AES-256-GCM needs exactly
+// 32 bytes, so the hex form must be 64 characters. Without this the process
+// starts happily and every cloud-credential save throws at runtime instead —
+// a deploy-time failure is far cheaper to diagnose than a per-request one.
+// The value is never logged; only its length is reported.
+const encryptionKey = process.env.CREDENTIALS_ENCRYPTION_KEY;
+if (!encryptionKey || !/^[0-9a-fA-F]{64}$/.test(encryptionKey)) {
+  throw new Error(
+    "CREDENTIALS_ENCRYPTION_KEY must be 64 hexadecimal characters (32 bytes for AES-256-GCM); " +
+      `got ${encryptionKey ? `${encryptionKey.length} characters` : "no value"}`,
+  );
+}
+
 // Fail closed if global TLS verification was disabled in production. Setting
 // NODE_TLS_REJECT_UNAUTHORIZED=0 turns off certificate checks for every
 // outbound HTTPS call (Keycloak JWKS, AWS, git, Bedrock), enabling MITM and
