@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.11.1](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.11.0...v1.11.1) (2026-08-10)
+
+### 🐛 Bug Fixes
+
+* stop globalPrefix validation rejecting the wizard's own suggestions (OP-175) ([#23](https://github.com/devopsgroupeu/openprime-app-backend/issues/23)) ([980b24a](https://github.com/devopsgroupeu/openprime-app-backend/commit/980b24a49450eb75e842eef148875316bb185b30))
+
 ## [1.11.0](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.10.5...v1.11.0) (2026-08-10)
 
 ### 🚀 Features
