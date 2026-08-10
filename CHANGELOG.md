@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.11.0](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.10.5...v1.11.0) (2026-08-10)
+
+### 🚀 Features
+
+* validate git repository URLs and the credential encryption key (OP-175) ([#22](https://github.com/devopsgroupeu/openprime-app-backend/issues/22)) ([a2107cf](https://github.com/devopsgroupeu/openprime-app-backend/commit/a2107cf0e60a52896924588db84df106ecd06cfd))
+
 ## [1.10.5](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.10.4...v1.10.5) (2026-08-10)
 
 ### 🐛 Bug Fixes
