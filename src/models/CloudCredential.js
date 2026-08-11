@@ -1,9 +1,6 @@
 const { DataTypes } = require("sequelize");
 const { sequelize } = require("../config/database");
-const crypto = require("crypto");
-
-const ENCRYPTION_KEY = process.env.CREDENTIALS_ENCRYPTION_KEY;
-const ALGORITHM = "aes-256-gcm";
+const { encryptCredentials, decryptCredentials } = require("../utils/credentialCrypto");
 
 const CloudCredential = sequelize.define(
   "CloudCredential",
@@ -40,43 +37,11 @@ const CloudCredential = sequelize.define(
       allowNull: false,
       comment: "Encrypted credentials JSON",
       get() {
-        const encrypted = this.getDataValue("credentials");
-        if (!encrypted) return null;
-
-        try {
-          const parts = encrypted.split(":");
-          const iv = Buffer.from(parts[0], "hex");
-          const authTag = Buffer.from(parts[1], "hex");
-          const encryptedText = Buffer.from(parts[2], "hex");
-
-          const decipher = crypto.createDecipheriv(
-            ALGORITHM,
-            Buffer.from(ENCRYPTION_KEY, "hex"),
-            iv,
-          );
-          decipher.setAuthTag(authTag);
-
-          let decrypted = decipher.update(encryptedText, "hex", "utf8");
-          decrypted += decipher.final("utf8");
-
-          return JSON.parse(decrypted);
-        } catch (error) {
-          console.error("Error decrypting credentials:", error);
-          return null;
-        }
+        return decryptCredentials(this.getDataValue("credentials"));
       },
       set(value) {
         try {
-          const iv = crypto.randomBytes(16);
-          const cipher = crypto.createCipheriv(ALGORITHM, Buffer.from(ENCRYPTION_KEY, "hex"), iv);
-
-          let encrypted = cipher.update(JSON.stringify(value), "utf8", "hex");
-          encrypted += cipher.final("hex");
-
-          const authTag = cipher.getAuthTag();
-          const encryptedValue = `${iv.toString("hex")}:${authTag.toString("hex")}:${encrypted}`;
-
-          this.setDataValue("credentials", encryptedValue);
+          this.setDataValue("credentials", encryptCredentials(value));
         } catch (error) {
           console.error("Error encrypting credentials:", error);
           throw error;
