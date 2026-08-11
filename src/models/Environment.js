@@ -1,6 +1,11 @@
 // src/models/Environment.js
 const { DataTypes } = require("sequelize");
 const { sequelize } = require("../config/database");
+const {
+  encryptGitRepository,
+  decryptGitRepository,
+  redactGitRepository,
+} = require("../utils/sshKey");
 
 const Environment = sequelize.define(
   "Environment",
@@ -61,7 +66,17 @@ const Environment = sequelize.define(
       type: DataTypes.JSONB,
       allowNull: true,
       defaultValue: null,
-      comment: "Git repository configuration (URL, SSH key)",
+      comment: "Git repository configuration (URL, encrypted SSH key)",
+      // Only `sshKey` is encrypted, not the whole blob: `url` and `branch` stay
+      // readable JSONB so support can inspect where an environment pushes
+      // without holding the key. The instance getter returns plaintext for the
+      // push path; toJSON() below is what keeps it off the wire.
+      get() {
+        return decryptGitRepository(this.getDataValue("git_repository"));
+      },
+      set(value) {
+        this.setDataValue("git_repository", encryptGitRepository(value));
+      },
     },
     state_key: {
       type: DataTypes.STRING,
@@ -120,5 +135,28 @@ const Environment = sequelize.define(
     ],
   },
 );
+
+/**
+ * The customer's deploy key is write-capable against their infrastructure repo,
+ * so it must never leave the process in a serialised environment. Redacting in
+ * toJSON() rather than at each call site means every current and future read
+ * path — list, get, create, update, and anything that JSON.stringify's an
+ * instance — is safe by construction; leaking requires deliberately reaching
+ * for gitRepositoryWithKey() below.
+ */
+Environment.prototype.toJSON = function toJSON() {
+  const values = { ...this.get({ plain: true }) };
+  values.git_repository = redactGitRepository(values.git_repository);
+  return values;
+};
+
+/**
+ * The one sanctioned way to obtain the decrypted deploy key — used by the push
+ * path, which has to hand it to git. Named so that any future call site shows
+ * up in a grep for the key material.
+ */
+Environment.prototype.gitRepositoryWithKey = function gitRepositoryWithKey() {
+  return this.git_repository;
+};
 
 module.exports = Environment;

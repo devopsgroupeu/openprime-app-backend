@@ -191,9 +191,10 @@ exports.pushInfrastructure = async (req, res, next) => {
       return res.status(404).json({ error: "Environment not found" });
     }
 
-    // Check for Git URL and SSH
+    // Check for Git URL and SSH. `environment` is redacted, so readiness is
+    // read from the flag rather than from the key itself.
     const git_check = environment.git_repository;
-    if (!git_check?.url || !git_check?.sshKey) {
+    if (!git_check?.url || !git_check?.sshKeyConfigured) {
       return res.status(400).json({ error: "Git repository is not configured" });
     }
 
@@ -201,12 +202,11 @@ exports.pushInfrastructure = async (req, res, next) => {
     req.log.info("Generating infrastructure", { environmentId: id, name: environment.name });
     const zipBuffer = await environmentService.generateInfrastructure(environment);
 
-    // Call git push service to push infrastructure
+    // Call git push service to push infrastructure. This is the one path that
+    // needs the decrypted deploy key.
     req.log.info("Pushing infrastructure to Git", { environmentId: id, name: environment.name });
-    const result = await environmentService.pushInfrastructure(
-      zipBuffer,
-      environment.git_repository,
-    );
+    const gitRepository = await environmentService.getGitRepositoryForPush(id, user.id);
+    const result = await environmentService.pushInfrastructure(zipBuffer, gitRepository);
 
     // Set response
     res.json(result);

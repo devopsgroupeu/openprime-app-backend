@@ -5,7 +5,11 @@
 //
 // OP-192 asks for the round trip. These tests exercise the real crypto.
 
-const { encryptCredentials, decryptCredentials } = require("../src/utils/credentialCrypto");
+const {
+  encryptCredentials,
+  decryptCredentials,
+  looksEncrypted,
+} = require("../src/utils/credentialCrypto");
 
 const SECRET = {
   accessKeyId: "AKIAIOSFODNN7EXAMPLE",
@@ -93,5 +97,38 @@ describe("the key is read per call, not captured at require time", () => {
     } finally {
       process.env.CREDENTIALS_ENCRYPTION_KEY = realKey;
     }
+  });
+});
+
+describe("looksEncrypted", () => {
+  it("recognises what encryptCredentials produces", () => {
+    expect(looksEncrypted(encryptCredentials("anything"))).toBe(true);
+  });
+
+  it.each([
+    [
+      "a PEM private key",
+      "-----BEGIN OPENSSH PRIVATE KEY-----\nabc\n-----END OPENSSH PRIVATE KEY-----",
+    ],
+    ["a plain string", "hello"],
+    ["empty", ""],
+    ["null", null],
+    ["a number", 42],
+    ["too few segments", "abcd:efgh"],
+    ["non-hex segments", "zzzz:yyyy:xxxx"],
+    ["short iv", "00:11223344556677889900112233445566:aabb"],
+  ])("rejects %s", (_label, value) => {
+    expect(looksEncrypted(value)).toBe(false);
+  });
+
+  // The whole point: the migration must be able to tell these apart without
+  // calling decryptCredentials, which logs an error on every failure.
+  it("separates ciphertext from plaintext without a decrypt attempt", () => {
+    const plaintext = "-----BEGIN OPENSSH PRIVATE KEY-----\nkey\n-----END OPENSSH PRIVATE KEY-----";
+    const spy = jest.spyOn(console, "error").mockImplementation(() => {});
+    expect(looksEncrypted(plaintext)).toBe(false);
+    expect(looksEncrypted(encryptCredentials(plaintext))).toBe(true);
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
   });
 });
