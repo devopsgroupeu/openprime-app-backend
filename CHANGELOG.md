@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.13.0](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.12.0...v1.13.0) (2026-08-12)
+
+### 🚀 Features
+
+* **security:** encrypt git deploy key at rest and make it write-only through the API ([#26](https://github.com/devopsgroupeu/openprime-app-backend/issues/26)) ([eafd818](https://github.com/devopsgroupeu/openprime-app-backend/commit/eafd818810aa0b34619c81e2930bea881b358f47))
+
 ## [1.12.0](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.11.1...v1.12.0) (2026-08-10)
 
 ### 🚀 Features
