@@ -268,6 +268,7 @@ class EnvironmentService {
     const gitDir = path.join(tempDir, "git");
     const extractDir = path.join(tempDir, "extract");
     const keyDir = path.join(tempDir, "ssh_key");
+    const knownHostsFile = path.join(tempDir, "known_hosts");
 
     try {
       // Git config - key
@@ -284,7 +285,11 @@ class EnvironmentService {
 
       const git = simpleGit().env({
         ...process.env,
-        GIT_SSH_COMMAND: `ssh -i ${keyDir} -o StrictHostKeyChecking=no`,
+        // accept-new trusts a host we have never seen and pins it for the rest
+        // of this push; `no` would also accept a *changed* key, which is the
+        // shape of a man-in-the-middle. The known_hosts file lives in the temp
+        // dir and dies with it, so this is per-push trust-on-first-use.
+        GIT_SSH_COMMAND: `ssh -i ${keyDir} -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=${knownHostsFile}`,
         // Defence in depth behind the validator: even if a URL slips through,
         // git itself will refuse any transport outside this list — including
         // file:// and bare local paths, which clone happily by default.
@@ -294,6 +299,37 @@ class EnvironmentService {
       // Clone user repo
       logger.info("Cloning user repository", { url: git_repository.url });
       await git.clone(git_repository.url, gitDir);
+      await git.cwd(gitDir);
+
+      // Land on the branch the user configured. Until now the clone's default
+      // branch was pushed while the configured branch was used only as the
+      // ArgoCD targetRevision, so any branch other than the default produced
+      // "pushed successfully" plus a cluster pointed at a branch that never
+      // received the commit.
+      const targetBranch = git_repository.branch?.trim();
+      if (targetBranch && targetBranch !== "HEAD") {
+        const remotes = await git.branch(["-r"]);
+        const existsRemotely = remotes.all.includes(`origin/${targetBranch}`);
+        try {
+          if (existsRemotely) {
+            await git.checkout(targetBranch);
+          } else {
+            // New branch off whatever the clone landed on, so the generated
+            // tree is added to the repository's history rather than orphaned.
+            await git.checkoutLocalBranch(targetBranch);
+          }
+        } catch (error) {
+          throw new Error(
+            `Could not use branch "${targetBranch}": ${error.message}. ` +
+              `Fix the branch in the environment's Git settings, or create it in the repository first.`,
+            { cause: error },
+          );
+        }
+        logger.info("Checked out target branch", {
+          branch: targetBranch,
+          created: !existsRemotely,
+        });
+      }
 
       // Extract zip
       const zip = new AdmZip(zipBuffer);
@@ -301,9 +337,6 @@ class EnvironmentService {
 
       // Copy extracted files to cloned repo dir
       await fs.promises.cp(extractDir, gitDir, { recursive: true });
-
-      // Switch to cloned repo Dir
-      await git.cwd(gitDir);
 
       // Git identity + stage
       await git.addConfig("user.email", "generated_by@openprime.com");
@@ -317,10 +350,28 @@ class EnvironmentService {
         return { status: "success", message: "Repository is already up to date" };
       }
 
+      // Files that already existed and this push changed. `fs.cp` overwrites
+      // silently, so without reporting these the user has no way to know the
+      // generated tree landed on top of something of theirs.
+      const overwritten = [...status.modified, ...status.renamed.map((r) => r.from)].sort();
+      if (overwritten.length > 0) {
+        logger.warn("Push overwrites existing repository files", {
+          count: overwritten.length,
+          files: overwritten.slice(0, 20),
+        });
+      }
+
       // Push
       await git.commit("Generated infrastructure with OpenPrime");
-      await git.push();
-      return { status: "success", message: "Infrastructure pushed to Git" };
+      const pushArgs =
+        targetBranch && targetBranch !== "HEAD" ? ["-u", "origin", targetBranch] : [];
+      await git.push(pushArgs);
+      return {
+        status: "success",
+        message: "Infrastructure pushed to Git",
+        branch: targetBranch || null,
+        overwritten,
+      };
     } catch (error) {
       logger.error("Failed to push to Git", { error: error.message });
       throw new Error(`Failed to push to Git: ${error.message}`, { cause: error });
