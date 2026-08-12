@@ -60,4 +60,21 @@ function decryptCredentials(stored) {
   }
 }
 
-module.exports = { encryptCredentials, decryptCredentials };
+/**
+ * True when a string has the shape encryptCredentials produces
+ * (`ivHex:authTagHex:ciphertextHex`, 16-byte IV and tag).
+ *
+ * Exists so callers that must distinguish stored ciphertext from a plaintext
+ * value — the sshKey migration, which has to be re-runnable — can ask without
+ * attempting a decrypt. decryptCredentials logs an error on failure by design,
+ * so probing with it would print a stack trace for every row it correctly
+ * migrates and make a healthy migration look broken.
+ */
+function looksEncrypted(value) {
+  return (
+    typeof value === "string" &&
+    new RegExp(`^[0-9a-f]{${IV_BYTES * 2}}:[0-9a-f]{32}:[0-9a-f]*$`).test(value)
+  );
+}
+
+module.exports = { encryptCredentials, decryptCredentials, looksEncrypted };

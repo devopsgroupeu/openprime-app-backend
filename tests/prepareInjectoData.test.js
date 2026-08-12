@@ -39,3 +39,52 @@ describe("prepareInjectoData — scoped Terraform state keys", () => {
     expect(data.terraformBackend).toBeNull();
   });
 });
+
+describe("prepareInjectoData — git repository (OP-216)", () => {
+  const withGit = (git_repository) =>
+    environmentService.prepareInjectoData({
+      name: "prod",
+      provider: "aws",
+      region: "eu-west-1",
+      terraform_backend: null,
+      git_repository,
+    });
+
+  test("sends the two fields templates consume", () => {
+    // @param gitRepository.url and @param gitRepository.branch, in
+    // terraform/kubernetes/terraform.auto.tfvars and argocd/applications.yaml.
+    const data = withGit({ url: "git@github.com:acme/infra.git", branch: "release" });
+    expect(data.gitRepository).toEqual({
+      url: "git@github.com:acme/infra.git",
+      branch: "release",
+    });
+  });
+
+  test("never sends the deploy key to Injecto", () => {
+    // No template has ever read gitRepository.sshKey, yet the whole object used
+    // to be forwarded — putting the customer's write-capable private key across
+    // a service boundary on every single generate.
+    const data = withGit({
+      url: "git@github.com:acme/infra.git",
+      branch: "main",
+      sshKey: "-----BEGIN OPENSSH PRIVATE KEY-----\nSECRET\n-----END OPENSSH PRIVATE KEY-----",
+    });
+    expect(data.gitRepository.sshKey).toBeUndefined();
+    expect(JSON.stringify(data)).not.toContain("SECRET");
+  });
+
+  test("defaults the branch to HEAD, matching the argocd targetRevision", () => {
+    const data = withGit({ url: "git@github.com:acme/infra.git" });
+    expect(data.gitRepository.branch).toBe("HEAD");
+    expect(data.argocd.targetRevision).toBe("HEAD");
+  });
+
+  test("still populates argocd.git_repo_url from the same url", () => {
+    const data = withGit({ url: "git@github.com:acme/infra.git", branch: "main" });
+    expect(data.argocd.git_repo_url).toBe("git@github.com:acme/infra.git");
+  });
+
+  test("no git repository yields null", () => {
+    expect(withGit(null).gitRepository).toBeNull();
+  });
+});

@@ -11,6 +11,7 @@ const AdmZip = require("adm-zip");
 const simpleGit = require("simple-git");
 const { validateGitRepositoryUrl } = require("../validators/gitUrl");
 const { parseGenerationFailure, generationError } = require("../utils/generationErrors");
+const { mergeGitRepository } = require("../utils/sshKey");
 
 // Validate required environment variable
 if (!process.env.INJECTO_SERVICE_URL) {
@@ -96,6 +97,20 @@ class EnvironmentService {
     }
   }
 
+  /**
+   * Decrypted git repository config, including the deploy key, for the push
+   * path only — everything else must go through getEnvironmentByIdAndUser,
+   * whose toJSON() redacts the key. Still user-scoped: a caller cannot reach
+   * another user's key through it.
+   */
+  async getGitRepositoryForPush(environmentId, userId) {
+    const environment = await Environment.findOne({
+      where: { id: environmentId, user_id: userId },
+    });
+
+    return environment ? environment.gitRepositoryWithKey() : null;
+  }
+
   async updateEnvironmentByUser(environmentId, userId, data) {
     try {
       const environment = await Environment.findOne({
@@ -135,8 +150,7 @@ class EnvironmentService {
           data.terraformBackend !== undefined
             ? data.terraformBackend
             : environment.terraform_backend,
-        git_repository:
-          data.gitRepository !== undefined ? data.gitRepository : environment.git_repository,
+        git_repository: mergeGitRepository(environment.git_repository, data.gitRepository),
         cloud_credential_id:
           data.cloudCredentialId !== undefined
             ? data.cloudCredentialId
@@ -351,7 +365,16 @@ class EnvironmentService {
       region: environment.region || environment.location,
       terraformBackend,
       backend: environment.terraform_backend?.enabled || false,
-      gitRepository: environment.git_repository || null,
+      // Only the two fields templates actually consume (@param gitRepository.url
+      // and .branch). Passing the whole object used to ship the customer's
+      // private deploy key across the service boundary to Injecto on every
+      // generate, where nothing has ever read it.
+      gitRepository: environment.git_repository
+        ? {
+            url: environment.git_repository.url || "",
+            branch: environment.git_repository.branch || "HEAD",
+          }
+        : null,
       // Map user-supplied git repo URL into the path Injecto uses for @param argocd.git_repo_url
       argocd: {
         git_repo_url: environment.git_repository?.url || "",
