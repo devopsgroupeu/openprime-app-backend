@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.13.1](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.13.0...v1.13.1) (2026-08-12)
+
+### 🐛 Bug Fixes
+
+* **git:** push to the configured branch and report overwritten files ([#27](https://github.com/devopsgroupeu/openprime-app-backend/issues/27)) ([ec3a07c](https://github.com/devopsgroupeu/openprime-app-backend/commit/ec3a07cb8716edd75492d92c8ededfaf73f007c7))
+
 ## [1.13.0](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.12.0...v1.13.0) (2026-08-12)
 
 ### 🚀 Features
