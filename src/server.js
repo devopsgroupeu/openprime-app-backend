@@ -12,6 +12,7 @@ const { logger } = require("./utils/logger");
 const routes = require("./routes");
 const { sequelize, initializeDatabase, closeConnection } = require("./config/database");
 const { migrateOnStartup } = require("./config/umzug");
+const { startWorker, stopWorker } = require("./services/jobProcessor");
 
 // Validate required environment variables
 const requiredEnvVars = ["PORT", "FRONTEND_URL"];
@@ -132,24 +133,27 @@ async function startServer() {
       logger.info("Database: PostgreSQL connected and ready");
     });
 
-    // Graceful shutdown
-    process.on("SIGTERM", async () => {
-      logger.info("SIGTERM received, shutting down gracefully");
-      server.close(async () => {
-        await closeConnection();
-        logger.info("Process terminated");
-        process.exit(0);
-      });
-    });
+    // Async job worker (generate/push). In-process by default; disable with
+    // WORKER_ENABLED=false (e.g. when running a dedicated worker process).
+    if (process.env.WORKER_ENABLED !== "false") {
+      startWorker();
+    }
 
-    process.on("SIGINT", async () => {
-      logger.info("SIGINT received, shutting down gracefully");
+    // Graceful shutdown: stop claiming new jobs, drain in-flight work, requeue
+    // anything still running (the async job model makes this safe — a long git
+    // push is no longer glued to an HTTP request).
+    const shutdown = async (signal) => {
+      logger.info(`${signal} received, shutting down gracefully`);
+      await stopWorker();
       server.close(async () => {
         await closeConnection();
         logger.info("Process terminated");
         process.exit(0);
       });
-    });
+    };
+
+    process.on("SIGTERM", () => shutdown("SIGTERM"));
+    process.on("SIGINT", () => shutdown("SIGINT"));
 
     // Crash visibility. Node already terminates on an unhandled rejection, so
     // without these the pod restarts with no record of why - the log line, not

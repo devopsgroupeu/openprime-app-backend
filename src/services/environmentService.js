@@ -261,7 +261,11 @@ class EnvironmentService {
     }
   }
 
-  async pushInfrastructure(zipBuffer, git_repository) {
+  async pushInfrastructure(zipBuffer, git_repository, options = {}) {
+    // Per-command timeout so a hung clone/commit/push cannot block the worker
+    // forever (the job deadline is the outer bound). Default 60s per command.
+    const timeoutMs = options.timeoutMs || 60000;
+
     // Create temporary dir
     logger.info("Creating temp directories");
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "openprime-push-dir-"));
@@ -283,7 +287,7 @@ class EnvironmentService {
         throw new Error(`Invalid repository URL: ${urlCheck.reason}`);
       }
 
-      const git = simpleGit().env({
+      const git = simpleGit({ timeout: { block: timeoutMs } }).env({
         ...process.env,
         // accept-new trusts a host we have never seen and pins it for the rest
         // of this push; `no` would also accept a *changed* key, which is the
@@ -347,7 +351,12 @@ class EnvironmentService {
       const status = await git.status();
       if (status.isClean()) {
         logger.info("No changes to commit — repository is already up to date");
-        return { status: "success", message: "Repository is already up to date" };
+        return {
+          status: "success",
+          message: "Repository is already up to date",
+          upToDate: true,
+          commit: null,
+        };
       }
 
       // Files that already existed and this push changed. `fs.cp` overwrites
@@ -366,11 +375,22 @@ class EnvironmentService {
       const pushArgs =
         targetBranch && targetBranch !== "HEAD" ? ["-u", "origin", targetBranch] : [];
       await git.push(pushArgs);
+
+      // Capture the pushed commit for the job result / last_push_commit.
+      let commit = null;
+      try {
+        commit = (await git.revparse(["HEAD"])).trim();
+      } catch {
+        // revparse is best-effort; the push itself already succeeded.
+      }
+
       return {
         status: "success",
         message: "Infrastructure pushed to Git",
         branch: targetBranch || null,
         overwritten,
+        upToDate: false,
+        commit,
       };
     } catch (error) {
       logger.error("Failed to push to Git", { error: error.message });

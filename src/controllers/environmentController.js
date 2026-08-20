@@ -4,6 +4,7 @@ const environmentService = require("../services/environmentService");
 const userService = require("../services/userService");
 const statecraftService = require("../services/statecraftService");
 const cloudCredentialService = require("../services/cloudCredentialService");
+const jobService = require("../services/jobService");
 
 exports.getUserEnvironments = async (req, res, next) => {
   try {
@@ -134,6 +135,9 @@ exports.deleteEnvironment = async (req, res, next) => {
   }
 };
 
+// Async job model (P1): generate/push no longer run inline in the HTTP
+// request. They enqueue a DB-backed job and return 202 + jobId; the in-process
+// worker executes it and the UI polls GET /api/jobs/:jobId.
 exports.generateInfrastructure = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -147,20 +151,16 @@ exports.generateInfrastructure = async (req, res, next) => {
       return res.status(404).json({ error: "Environment not found" });
     }
 
-    req.log.info("Generating infrastructure", { environmentId: id, name: environment.name });
+    const idempotencyKey = req.get("Idempotency-Key") || req.body?.idempotencyKey || null;
+    const job = await jobService.enqueue("generate", environment, {
+      idempotencyKey,
+      userId: user.id,
+    });
 
-    // Call Injecto service to generate infrastructure
-    const zipBuffer = await environmentService.generateInfrastructure(environment);
-
-    // Set response headers for ZIP download
-    res.setHeader("Content-Type", "application/zip");
-    res.setHeader(
-      "Content-Disposition",
-      `attachment; filename=${environment.name}-infrastructure.zip`,
-    );
-    res.send(zipBuffer);
+    req.log.info("Generate job enqueued", { environmentId: id, jobId: job.id });
+    res.status(202).json({ jobId: job.id, type: job.type, status: job.status });
   } catch (error) {
-    req.log.error("Failed to generate infrastructure", {
+    req.log.error("Failed to enqueue generate job", {
       environmentId: req.params.id,
       error: error.message,
       code: error.code,
@@ -198,20 +198,16 @@ exports.pushInfrastructure = async (req, res, next) => {
       return res.status(400).json({ error: "Git repository is not configured" });
     }
 
-    // Call Injecto service to generate infrastructure
-    req.log.info("Generating infrastructure", { environmentId: id, name: environment.name });
-    const zipBuffer = await environmentService.generateInfrastructure(environment);
+    const idempotencyKey = req.get("Idempotency-Key") || req.body?.idempotencyKey || null;
+    const job = await jobService.enqueue("push", environment, {
+      idempotencyKey,
+      userId: user.id,
+    });
 
-    // Call git push service to push infrastructure. This is the one path that
-    // needs the decrypted deploy key.
-    req.log.info("Pushing infrastructure to Git", { environmentId: id, name: environment.name });
-    const gitRepository = await environmentService.getGitRepositoryForPush(id, user.id);
-    const result = await environmentService.pushInfrastructure(zipBuffer, gitRepository);
-
-    // Set response
-    res.json(result);
+    req.log.info("Push job enqueued", { environmentId: id, jobId: job.id });
+    res.status(202).json({ jobId: job.id, type: job.type, status: job.status });
   } catch (error) {
-    req.log.error("Failed to push infrastructure", {
+    req.log.error("Failed to enqueue push job", {
       environmentId: req.params.id,
       error: error.message,
     });
