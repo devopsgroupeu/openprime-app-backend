@@ -265,7 +265,7 @@ class JobService {
     await fs.promises.mkdir(dir, { recursive: true });
     const filePath = path.join(dir, "infrastructure.zip");
     await fs.promises.writeFile(filePath, zipBuffer);
-    return `/api/jobs/${jobId}/download`;
+    return `/jobs/${jobId}/download`;
   }
 
   getGeneratedZipPath(jobId) {

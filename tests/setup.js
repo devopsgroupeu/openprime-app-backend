@@ -144,7 +144,7 @@ jest.mock("../src/services/jobService", () => ({
   markFailed: jest.fn().mockResolvedValue(true),
   markForRetry: jest.fn().mockResolvedValue(true),
   requeueRunningJobs: jest.fn().mockResolvedValue(0),
-  persistGeneratedZip: jest.fn().mockResolvedValue("/api/jobs/job-1/download"),
+  persistGeneratedZip: jest.fn().mockResolvedValue("/jobs/job-1/download"),
   updateEnvironmentStatus: jest.fn().mockResolvedValue(true),
   persistOutcome: jest.fn().mockResolvedValue(true),
   JobConflictError: class JobConflictError extends Error {

@@ -135,7 +135,7 @@ describe("Async job API", () => {
         status: "succeeded",
         attempts: 1,
         max_attempts: 3,
-        result: { message: "Infrastructure generated successfully", downloadUrl: "/api/jobs/job-gen-1/download" },
+        result: { message: "Infrastructure generated successfully", downloadUrl: "/jobs/job-gen-1/download" },
         error: null,
         created_at: new Date("2026-08-19T10:00:00Z"),
         started_at: new Date("2026-08-19T10:00:01Z"),
@@ -151,7 +151,7 @@ describe("Async job API", () => {
         attempts: 1,
         maxAttempts: 3,
       });
-      expect(response.body.result.downloadUrl).toBe("/api/jobs/job-gen-1/download");
+      expect(response.body.result.downloadUrl).toBe("/jobs/job-gen-1/download");
     });
 
     it("returns 404 when the job does not exist or belongs to another user", async () => {
