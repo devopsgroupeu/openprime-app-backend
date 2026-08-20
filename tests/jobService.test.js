@@ -88,9 +88,7 @@ describe("jobService.enqueue", () => {
       status: "running",
     }); // repo lock held by another environment
 
-    await expect(
-      jobService.enqueue("push", mockEnvironment, { userId: 1 }),
-    ).rejects.toMatchObject({
+    await expect(jobService.enqueue("push", mockEnvironment, { userId: 1 })).rejects.toMatchObject({
       name: "JobConflictError",
       status: 409,
       message: "Another push to this repository is already in progress",
@@ -173,10 +171,16 @@ describe("jobService outcome persistence", () => {
     };
     Environment.update.mockResolvedValue([1]);
 
-    await jobService.markSucceeded(job, { message: "Infrastructure pushed to Git", commit: "abc123" });
+    await jobService.markSucceeded(job, {
+      message: "Infrastructure pushed to Git",
+      commit: "abc123",
+    });
 
     expect(job.update).toHaveBeenCalledWith(
-      expect.objectContaining({ status: "succeeded", result: { message: "Infrastructure pushed to Git", commit: "abc123" } }),
+      expect.objectContaining({
+        status: "succeeded",
+        result: { message: "Infrastructure pushed to Git", commit: "abc123" },
+      }),
     );
     const outcomeCall = Environment.update.mock.calls.find(
       ([update]) => update.last_push_at !== undefined,

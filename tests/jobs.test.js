@@ -83,10 +83,7 @@ describe("Async job API", () => {
       environmentService.getEnvironmentByIdAndUser.mockResolvedValue(mockEnvironment);
       jobService.enqueue.mockResolvedValue({ id: "job-push-1", type: "push", status: "queued" });
 
-      const response = await request(app)
-        .post("/api/environments/env-1/push")
-        .send({})
-        .expect(202);
+      const response = await request(app).post("/api/environments/env-1/push").send({}).expect(202);
 
       expect(response.body).toEqual({ jobId: "job-push-1", type: "push", status: "queued" });
       expect(jobService.enqueue).toHaveBeenCalledWith(
@@ -102,10 +99,7 @@ describe("Async job API", () => {
         git_repository: null,
       });
 
-      const response = await request(app)
-        .post("/api/environments/env-1/push")
-        .send({})
-        .expect(400);
+      const response = await request(app).post("/api/environments/env-1/push").send({}).expect(400);
 
       expect(response.body.error).toBe("Git repository is not configured");
       expect(jobService.enqueue).not.toHaveBeenCalled();
@@ -118,10 +112,7 @@ describe("Async job API", () => {
       );
       jobService.enqueue.mockRejectedValue(conflict);
 
-      const response = await request(app)
-        .post("/api/environments/env-1/push")
-        .send({})
-        .expect(409);
+      const response = await request(app).post("/api/environments/env-1/push").send({}).expect(409);
 
       expect(response.body.error).toBe("Another push to this repository is already in progress");
     });
@@ -135,7 +126,10 @@ describe("Async job API", () => {
         status: "succeeded",
         attempts: 1,
         max_attempts: 3,
-        result: { message: "Infrastructure generated successfully", downloadUrl: "/jobs/job-gen-1/download" },
+        result: {
+          message: "Infrastructure generated successfully",
+          downloadUrl: "/jobs/job-gen-1/download",
+        },
         error: null,
         created_at: new Date("2026-08-19T10:00:00Z"),
         started_at: new Date("2026-08-19T10:00:01Z"),

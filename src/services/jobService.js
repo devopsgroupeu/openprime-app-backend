@@ -269,7 +269,12 @@ class JobService {
   }
 
   getGeneratedZipPath(jobId) {
-    return path.join(process.env.UPLOADS_DIR || "uploads", "generated", jobId, "infrastructure.zip");
+    return path.join(
+      process.env.UPLOADS_DIR || "uploads",
+      "generated",
+      jobId,
+      "infrastructure.zip",
+    );
   }
 }
 
