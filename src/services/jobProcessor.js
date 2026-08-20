@@ -1,0 +1,173 @@
+// src/services/jobProcessor.js
+// In-process job worker for generate/push (P1 architecture task).
+//
+// Polls the DB-backed queue (jobService.claimNextJob uses SELECT ... FOR
+// UPDATE SKIP LOCKED), enforces concurrency caps that protect the shared
+// services (Injecto, StateCraft, Bedrock all run in/behind this process),
+// executes jobs, and retries transient failures with backoff.
+//
+// Started by server.js unless WORKER_ENABLED=false. stopWorker() drains
+// in-flight jobs and requeues anything still running (graceful shutdown).
+const { logger } = require("../utils/logger");
+const jobService = require("./jobService");
+const environmentService = require("./environmentService");
+
+const POLL_INTERVAL_MS = parseInt(process.env.JOB_POLL_INTERVAL_MS || "3000", 10);
+const MAX_CONCURRENT_JOBS = parseInt(process.env.MAX_CONCURRENT_JOBS || "2", 10);
+const MAX_CONCURRENT_GENERATE = parseInt(process.env.MAX_CONCURRENT_GENERATE || "2", 10);
+const MAX_CONCURRENT_PUSH = parseInt(process.env.MAX_CONCURRENT_PUSH || "1", 10);
+const JOB_DEADLINE_MS = parseInt(process.env.JOB_DEADLINE_MS || "600000", 10);
+const DRAIN_TIMEOUT_MS = parseInt(process.env.JOB_DRAIN_TIMEOUT_MS || "30000", 10);
+
+let stopping = false;
+let loopPromise = null;
+const inFlight = new Set();
+const runningCount = { total: 0, generate: 0, push: 0 };
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Transient failures (network, timeouts, 5xx) are retried; permanent ones
+ * (auth, missing repo, bad input) fail fast so we don't burn attempts.
+ */
+function isRetryable(error) {
+  const message = `${error?.message || ""} ${error?.code || ""}`;
+  if (
+    /permission denied|authentication failed|not authorized|repository not found|does not exist|host key verification|invalid/i.test(
+      message,
+    )
+  ) {
+    return false;
+  }
+  if (/ECONNABORTED|ECONNREFUSED|ETIMEDOUT|ENETUNREACH|EAI_AGAIN|ECONNRESET/.test(message)) {
+    return true;
+  }
+  if (error?.response?.status >= 500) return true;
+  if (error?.response?.status >= 400 && error?.response?.status < 500) return false;
+  if (
+    /failed to connect|could not resolve host|remote end hung up|connection timed out|early eof|unable to access|exceeded deadline/i.test(
+      message,
+    )
+  ) {
+    return true;
+  }
+  return false;
+}
+
+async function executeJob(job) {
+  const startedAt = Date.now();
+  try {
+    const environment = job.payload?.environment;
+    if (!environment) {
+      throw new Error("Job payload is missing the environment snapshot");
+    }
+
+    let result;
+    if (job.type === "generate") {
+      const zipBuffer = await environmentService.generateInfrastructure(environment);
+      const downloadUrl = await jobService.persistGeneratedZip(job.id, zipBuffer);
+      result = {
+        message: "Infrastructure generated successfully",
+        downloadUrl,
+        sizeBytes: zipBuffer.length,
+      };
+    } else if (job.type === "push") {
+      const zipBuffer = await environmentService.generateInfrastructure(environment);
+      // The payload snapshot's git_repository is redacted (the deploy key never
+      // leaves the process), so fetch the decrypted repo config at execution
+      // time, user-scoped, and hand that to the push.
+      const gitRepository = await environmentService.getGitRepositoryForPush(
+        environment.id,
+        environment.user_id,
+      );
+      const pushResult = await environmentService.pushInfrastructure(zipBuffer, gitRepository);
+      result = {
+        message: pushResult.message,
+        commit: pushResult.commit || null,
+        upToDate: pushResult.upToDate || false,
+      };
+    } else {
+      throw new Error(`Unknown job type: ${job.type}`);
+    }
+
+    if (Date.now() - startedAt > JOB_DEADLINE_MS) {
+      throw new Error(`Job exceeded deadline of ${JOB_DEADLINE_MS}ms`);
+    }
+
+    await jobService.markSucceeded(job, result);
+  } catch (error) {
+    logger.error("Job execution failed", { jobId: job.id, type: job.type, error: error.message });
+    // A 422 generation failure (OP-214) is the user's problem to act on, not a
+    // transient fault: never retry it, and surface the code/details the UI can
+    // show alongside the message.
+    if (error.statusCode === 422) {
+      const details = Array.isArray(error.details) ? error.details.join("; ") : "";
+      error.message = `${error.message}${error.code ? ` (${error.code})` : ""}${details ? ` ${details}` : ""}`;
+      await jobService.markFailed(job, error);
+    } else if (isRetryable(error) && job.attempts < job.max_attempts) {
+      await jobService.markForRetry(job, error);
+    } else {
+      await jobService.markFailed(job, error);
+    }
+  }
+}
+
+async function workerLoop() {
+  while (!stopping) {
+    try {
+      // Per-type concurrency caps protect Injecto/StateCraft/Bedrock from
+      // being saturated by generate/push work.
+      const claimableTypes = [];
+      if (runningCount.generate < MAX_CONCURRENT_GENERATE) claimableTypes.push("generate");
+      if (runningCount.push < MAX_CONCURRENT_PUSH) claimableTypes.push("push");
+
+      if (runningCount.total >= MAX_CONCURRENT_JOBS || claimableTypes.length === 0) {
+        await sleep(POLL_INTERVAL_MS);
+        continue;
+      }
+
+      const job = await jobService.claimNextJob(claimableTypes);
+      if (!job) {
+        await sleep(POLL_INTERVAL_MS);
+        continue;
+      }
+
+      runningCount.total += 1;
+      runningCount[job.type] += 1;
+      const promise = executeJob(job).finally(() => {
+        runningCount.total -= 1;
+        runningCount[job.type] -= 1;
+        inFlight.delete(promise);
+      });
+      inFlight.add(promise);
+    } catch (error) {
+      logger.error("Worker loop error", { error: error.message });
+      await sleep(POLL_INTERVAL_MS);
+    }
+  }
+}
+
+function startWorker() {
+  if (loopPromise) return;
+  logger.info("Job worker started", {
+    pollIntervalMs: POLL_INTERVAL_MS,
+    maxConcurrentJobs: MAX_CONCURRENT_JOBS,
+    maxConcurrentGenerate: MAX_CONCURRENT_GENERATE,
+    maxConcurrentPush: MAX_CONCURRENT_PUSH,
+    jobDeadlineMs: JOB_DEADLINE_MS,
+  });
+  loopPromise = workerLoop();
+}
+
+async function stopWorker() {
+  if (!loopPromise) return;
+  stopping = true;
+  logger.info("Job worker stopping, draining in-flight jobs");
+  await Promise.race([Promise.allSettled([...inFlight]), sleep(DRAIN_TIMEOUT_MS)]);
+  const requeued = await jobService.requeueRunningJobs();
+  logger.info("Job worker stopped", { requeued });
+}
+
+module.exports = { startWorker, stopWorker, isRetryable };

@@ -14,8 +14,10 @@ podDisruptionBudget:
 
 # Graceful shutdown - a preStop delay lets the load balancer deregister this
 # pod's endpoint before SIGTERM, avoiding 5xx during rollouts/scale-down.
-# terminationGracePeriodSeconds bounds the total shutdown window (note: a
-# synchronous git push can exceed this — the async job model is the real fix).
+# terminationGracePeriodSeconds bounds the total shutdown window. Generate/push
+# run as async DB-backed jobs (see app.env.WORKER_ENABLED): on SIGTERM the
+# worker drains in-flight jobs and requeues the rest, so a long git push no
+# longer blocks a rollout.
 terminationGracePeriodSeconds: 45
 gracefulShutdown:
   enabled: true
@@ -141,6 +143,18 @@ app:
     # Infrastructure templates repository configuration
     INFRA_TEMPLATES_REPO_URL: "https://github.com/devopsgroupeu/openprime-infra-templates.git"
     INFRA_TEMPLATES_BRANCH: "main"
+
+    # Async job worker (generate/push) — DB-backed queue, in-process worker.
+    # Concurrency caps protect Injecto/StateCraft/Bedrock from saturation.
+    WORKER_ENABLED: "true"
+    JOB_POLL_INTERVAL_MS: "3000"
+    MAX_CONCURRENT_JOBS: "2"
+    MAX_CONCURRENT_GENERATE: "2"
+    MAX_CONCURRENT_PUSH: "1"
+    JOB_MAX_ATTEMPTS: "3"
+    JOB_DEADLINE_MS: "600000"
+    JOB_DRAIN_TIMEOUT_MS: "30000"
+    UPLOADS_DIR: "/app/uploads"
 
   # Secrets (should be provided via external secret management)
   # Use existing secret instead of creating one from values

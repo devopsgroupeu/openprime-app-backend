@@ -59,6 +59,11 @@ jest.mock("../src/config/database", () => ({
       model.belongsToMany = jest.fn().mockReturnValue(model);
       return model;
     }),
+    transaction: jest.fn().mockResolvedValue({
+      LOCK: { UPDATE: "UPDATE" },
+      commit: jest.fn().mockResolvedValue(true),
+      rollback: jest.fn().mockResolvedValue(true),
+    }),
   },
   testConnection: jest.fn().mockResolvedValue(true),
   initializeDatabase: jest.fn().mockResolvedValue(true),
@@ -127,4 +132,25 @@ jest.mock("../src/services/statecraftService", () => ({
   createBackendResources: jest.fn().mockResolvedValue({ success: true, data: {} }),
   deleteBackendResources: jest.fn().mockResolvedValue({ success: true, data: {} }),
   healthCheck: jest.fn().mockResolvedValue({ status: "ok" }),
+}));
+
+// Mock job service (async generate/push job model)
+jest.mock("../src/services/jobService", () => ({
+  enqueue: jest.fn().mockResolvedValue({ id: "job-1", type: "generate", status: "queued" }),
+  getJobByIdAndUser: jest.fn().mockResolvedValue(null),
+  getGeneratedZipPath: jest.fn().mockReturnValue("/tmp/nonexistent-infrastructure.zip"),
+  claimNextJob: jest.fn().mockResolvedValue(null),
+  markSucceeded: jest.fn().mockResolvedValue(true),
+  markFailed: jest.fn().mockResolvedValue(true),
+  markForRetry: jest.fn().mockResolvedValue(true),
+  requeueRunningJobs: jest.fn().mockResolvedValue(0),
+  persistGeneratedZip: jest.fn().mockResolvedValue("/jobs/job-1/download"),
+  updateEnvironmentStatus: jest.fn().mockResolvedValue(true),
+  persistOutcome: jest.fn().mockResolvedValue(true),
+  JobConflictError: class JobConflictError extends Error {
+    constructor(message) {
+      super(message);
+      this.status = 409;
+    }
+  },
 }));
