@@ -4,6 +4,7 @@
 // mocked models from tests/setup.js.
 jest.unmock("../src/services/jobService");
 
+const { Op } = require("sequelize");
 const jobService = require("../src/services/jobService");
 const { sequelize, Job, Environment } = require("../src/models");
 
@@ -134,7 +135,7 @@ describe("jobService.claimNextJob", () => {
     Job.findOne.mockResolvedValue(job);
     Environment.update.mockResolvedValue([1]);
 
-    const claimed = await jobService.claimNextJob(["generate"]);
+    const claimed = await jobService.claimNextJob(["generate"], "worker-1");
 
     expect(claimed).toBe(job);
     expect(job.update).toHaveBeenCalledWith(
@@ -148,12 +149,157 @@ describe("jobService.claimNextJob", () => {
     );
   });
 
+  it("stamps claimed_by with the worker id (lease owner)", async () => {
+    const job = {
+      id: "job-1",
+      type: "generate",
+      environment_id: "env-1",
+      attempts: 0,
+      update: jest.fn().mockResolvedValue(true),
+    };
+    Job.findOne.mockResolvedValue(job);
+    Environment.update.mockResolvedValue([1]);
+
+    await jobService.claimNextJob(["generate"], "worker-1");
+
+    expect(job.update).toHaveBeenCalledWith(
+      expect.objectContaining({ claimed_by: "worker-1" }),
+      expect.anything(),
+    );
+  });
+
+  it("does not stamp claimed_by when no worker id is provided", async () => {
+    const job = {
+      id: "job-1",
+      type: "generate",
+      environment_id: "env-1",
+      attempts: 0,
+      update: jest.fn().mockResolvedValue(true),
+    };
+    Job.findOne.mockResolvedValue(job);
+    Environment.update.mockResolvedValue([1]);
+
+    await jobService.claimNextJob(["generate"]);
+
+    expect(job.update).toHaveBeenCalledWith(
+      expect.not.objectContaining({ claimed_by: expect.anything() }),
+      expect.anything(),
+    );
+  });
+
   it("returns null when no job is due", async () => {
     Job.findOne.mockResolvedValue(null);
 
-    const claimed = await jobService.claimNextJob(["generate"]);
+    const claimed = await jobService.claimNextJob(["generate"], "worker-1");
 
     expect(claimed).toBeNull();
+  });
+});
+
+describe("jobService.requeueRunningJobs", () => {
+  beforeEach(() => {
+    jest.resetAllMocks();
+  });
+
+  it("requeues only the caller's own running jobs (claimed_by = workerId)", async () => {
+    const myJob = {
+      id: "job-1",
+      type: "generate",
+      update: jest.fn().mockResolvedValue(true),
+    };
+    Job.findAll.mockResolvedValue([myJob]);
+
+    const count = await jobService.requeueRunningJobs("worker-1");
+
+    expect(Job.findAll).toHaveBeenCalledWith({
+      where: { status: "running", claimed_by: "worker-1" },
+    });
+    expect(myJob.update).toHaveBeenCalledWith(expect.objectContaining({ status: "queued" }));
+    expect(count).toBe(1);
+  });
+
+  it("returns 0 and requeues nothing when no jobs are claimed by this worker", async () => {
+    Job.findAll.mockResolvedValue([]);
+
+    const count = await jobService.requeueRunningJobs("worker-1");
+
+    expect(Job.findAll).toHaveBeenCalledWith({
+      where: { status: "running", claimed_by: "worker-1" },
+    });
+    expect(count).toBe(0);
+  });
+});
+
+describe("jobService.persistGeneratedZip", () => {
+  beforeEach(() => {
+    jest.resetAllMocks();
+  });
+
+  it("stores the ZIP buffer on the job row and returns the download URL", async () => {
+    const job = {
+      id: "job-1",
+      update: jest.fn().mockResolvedValue(true),
+    };
+    const zipBuffer = Buffer.from("zip-bytes");
+
+    const downloadUrl = await jobService.persistGeneratedZip(job, zipBuffer);
+
+    expect(job.update).toHaveBeenCalledWith({ artifact: zipBuffer });
+    expect(downloadUrl).toBe("/jobs/job-1/download");
+  });
+});
+
+describe("jobService.recoverStaleJobs", () => {
+  beforeEach(() => {
+    jest.resetAllMocks();
+  });
+
+  it("reclaims running jobs claimed by a dead worker (claimed_by != workerId)", async () => {
+    const staleJob = {
+      id: "job-1",
+      type: "generate",
+      claimed_by: "dead-worker-uuid",
+      update: jest.fn().mockResolvedValue(true),
+    };
+    Job.findAll.mockResolvedValue([staleJob]);
+
+    const count = await jobService.recoverStaleJobs("my-worker-uuid");
+
+    expect(Job.findAll).toHaveBeenCalledWith({
+      where: { status: "running", claimed_by: { [Op.ne]: "my-worker-uuid" } },
+    });
+    expect(staleJob.update).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "queued", claimed_by: null }),
+    );
+    const updateArgs = staleJob.update.mock.calls[0][0];
+    expect(updateArgs.next_attempt_at.getTime()).toBeGreaterThan(Date.now());
+    expect(count).toBe(1);
+  });
+
+  it("does not touch a job already claimed by this worker (claimed_by === workerId)", async () => {
+    // The where clause excludes this worker's own claims, so a job with
+    // claimed_by === workerId is never selected and never updated.
+    Job.findAll.mockResolvedValue([]);
+
+    const count = await jobService.recoverStaleJobs("my-worker-uuid");
+
+    expect(Job.findAll).toHaveBeenCalledWith({
+      where: { status: "running", claimed_by: { [Op.ne]: "my-worker-uuid" } },
+    });
+    expect(count).toBe(0);
+  });
+
+  it("does not touch non-running jobs", async () => {
+    // Only status=running rows are selected; queued/succeeded/failed jobs are
+    // never returned by the query, so nothing is updated.
+    Job.findAll.mockResolvedValue([]);
+
+    const count = await jobService.recoverStaleJobs("my-worker-uuid");
+
+    expect(Job.findAll).toHaveBeenCalledWith({
+      where: { status: "running", claimed_by: { [Op.ne]: "my-worker-uuid" } },
+    });
+    expect(count).toBe(0);
   });
 });
 

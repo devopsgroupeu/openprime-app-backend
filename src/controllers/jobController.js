@@ -1,5 +1,4 @@
 // src/controllers/jobController.js
-const fs = require("node:fs");
 const jobService = require("../services/jobService");
 const userService = require("../services/userService");
 
@@ -55,15 +54,16 @@ exports.downloadJobArtifact = async (req, res, next) => {
       return res.status(409).json({ error: "Job has not completed successfully yet" });
     }
 
-    const filePath = jobService.getGeneratedZipPath(job.id);
-    if (!fs.existsSync(filePath)) {
+    // The artifact lives on the jobs row (BYTEA), not the filesystem, so any
+    // pod can serve it regardless of which pod ran the job.
+    if (!job.artifact || job.artifact.length === 0) {
       return res.status(404).json({ error: "Generated artifact not found" });
     }
 
     const envName = job.payload?.environment?.name || "infrastructure";
     res.setHeader("Content-Type", "application/zip");
     res.setHeader("Content-Disposition", `attachment; filename=${envName}-infrastructure.zip`);
-    fs.createReadStream(filePath).pipe(res);
+    res.send(Buffer.from(job.artifact));
   } catch (error) {
     req.log.error("Failed to download job artifact", {
       jobId: req.params.jobId,

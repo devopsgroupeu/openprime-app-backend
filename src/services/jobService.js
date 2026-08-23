@@ -12,8 +12,6 @@
 //                                all environments (concurrent pushes can
 //                                corrupt a repo)
 const { Op } = require("sequelize");
-const fs = require("node:fs");
-const path = require("node:path");
 const { sequelize, Job, Environment } = require("../models");
 const { logger } = require("../utils/logger");
 
@@ -129,10 +127,12 @@ class JobService {
   /**
    * Claim the oldest due queued job (SELECT ... FOR UPDATE SKIP LOCKED).
    * `types` optionally restricts which job types may be claimed (used by the
-   * worker to enforce per-type concurrency caps). Returns the job with
+   * worker to enforce per-type concurrency caps). `workerId` (when provided)
+   * is stamped as claimed_by — the lease owner — so a graceful shutdown only
+   * requeues this worker's own in-flight jobs. Returns the job with
    * status=running and attempts incremented, or null when nothing is due.
    */
-  async claimNextJob(types = null) {
+  async claimNextJob(types = null, workerId = null) {
     const transaction = await sequelize.transaction();
     try {
       const where = {
@@ -156,15 +156,16 @@ class JobService {
         return null;
       }
 
-      await job.update(
-        {
-          status: "running",
-          started_at: new Date(),
-          attempts: job.attempts + 1,
-          next_attempt_at: null,
-        },
-        { transaction },
-      );
+      const claimUpdate = {
+        status: "running",
+        started_at: new Date(),
+        attempts: job.attempts + 1,
+        next_attempt_at: null,
+      };
+      if (workerId) {
+        claimUpdate.claimed_by = workerId;
+      }
+      await job.update(claimUpdate, { transaction });
       await transaction.commit();
 
       await this.updateEnvironmentStatus(job.environment_id, "deploying");
@@ -223,9 +224,13 @@ class JobService {
     });
   }
 
-  /** Requeue any job still running (graceful shutdown drain). */
-  async requeueRunningJobs() {
-    const running = await Job.findAll({ where: { status: "running" } });
+  /**
+   * Requeue this worker's still-running jobs (graceful shutdown drain).
+   * Filtered by claimed_by = workerId so a shutting-down worker never requeues
+   * (and thus double-processes) jobs another worker is actively running.
+   */
+  async requeueRunningJobs(workerId) {
+    const running = await Job.findAll({ where: { status: "running", claimed_by: workerId } });
     for (const job of running) {
       await job.update({
         status: "queued",
@@ -234,6 +239,35 @@ class JobService {
       logger.warn("Requeued in-flight job during shutdown", { jobId: job.id, type: job.type });
     }
     return running.length;
+  }
+
+  /**
+   * Reclaim jobs a prior (now-dead) worker left running (startup recovery).
+   * A SIGKILLed worker (OOMKill, node failure, force delete) never runs
+   * stopWorker(), so its jobs stay status=running forever. Safe to requeue
+   * anything not claimed by us because the worker Deployment uses the Recreate
+   * strategy — no other live worker exists when this runs, so any running job
+   * with claimed_by != workerId is genuinely orphaned. The claimed_by filter is
+   * defense-in-depth against a hypothetical sibling. Requeued with backoff so
+   * the poll loop picks them up.
+   */
+  async recoverStaleJobs(workerId) {
+    const stale = await Job.findAll({
+      where: { status: "running", claimed_by: { [Op.ne]: workerId } },
+    });
+    for (const job of stale) {
+      await job.update({
+        status: "queued",
+        claimed_by: null,
+        next_attempt_at: new Date(Date.now() + RETRY_BASE_DELAY_MS),
+      });
+      logger.warn("Reclaimed stale job left by a dead worker", {
+        jobId: job.id,
+        type: job.type,
+        claimedBy: job.claimed_by,
+      });
+    }
+    return stale.length;
   }
 
   /** Persist the last-generate/last-push outcome on the environment. */
@@ -259,22 +293,13 @@ class JobService {
     await Environment.update({ status }, { where: { id: environmentId } });
   }
 
-  /** Write the generated ZIP to disk (uploads/generated/<jobId>/infrastructure.zip). */
-  async persistGeneratedZip(jobId, zipBuffer) {
-    const dir = path.join(process.env.UPLOADS_DIR || "uploads", "generated", jobId);
-    await fs.promises.mkdir(dir, { recursive: true });
-    const filePath = path.join(dir, "infrastructure.zip");
-    await fs.promises.writeFile(filePath, zipBuffer);
-    return `/jobs/${jobId}/download`;
-  }
-
-  getGeneratedZipPath(jobId) {
-    return path.join(
-      process.env.UPLOADS_DIR || "uploads",
-      "generated",
-      jobId,
-      "infrastructure.zip",
-    );
+  /**
+   * Store the generated ZIP on the jobs row (artifact BYTEA column) so any API
+   * pod can serve the download — no shared filesystem required.
+   */
+  async persistGeneratedZip(job, zipBuffer) {
+    await job.update({ artifact: zipBuffer });
+    return `/jobs/${job.id}/download`;
   }
 }
 

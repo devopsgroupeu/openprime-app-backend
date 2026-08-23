@@ -1,0 +1,87 @@
+{{- if .Values.worker.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "openprime-app-backend.fullname" . }}-worker
+  labels:
+    {{- include "openprime-app-backend.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker
+spec:
+  replicas: {{ .Values.worker.replicaCount }}
+  # Recreate (NOT RollingUpdate, unlike the API deployment): guarantees no two
+  # worker pods ever coexist. The startup lease-recovery sweep
+  # (jobService.recoverStaleJobs) relies on this — any running job not claimed
+  # by this worker is genuinely orphaned, never a live sibling's.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      # Deliberately NOT the app selectorLabels: the "-worker" name keeps this
+      # pod out of the backend Service endpoints (it has no HTTP server) and
+      # out of the app PDB/NetworkPolicy selectors — same pattern as the
+      # migration Job.
+      app.kubernetes.io/name: {{ include "openprime-app-backend.name" . }}-worker
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        app.kubernetes.io/name: {{ include "openprime-app-backend.name" . }}-worker
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: worker
+        app.kubernetes.io/managed-by: {{ .Release.Service }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "openprime-app-backend.serviceAccountName" . }}
+      {{- with .Values.terminationGracePeriodSeconds }}
+      terminationGracePeriodSeconds: {{ . }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}-worker
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          # Override the image default (src/server.js): this pod runs ONLY the
+          # job worker, no HTTP server, so there is no port and no HTTP probe.
+          command: ["node", "src/worker.js"]
+          env:
+            {{- include "openprime-app-backend.workerEnv" . | trimPrefix "\n" | nindent 12 }}
+          resources:
+            {{- toYaml .Values.worker.resources | nindent 12 }}
+          volumeMounts:
+            {{- if .Values.persistence.uploads.enabled }}
+            - name: uploads-storage
+              mountPath: {{ .Values.persistence.uploads.mountPath }}
+            {{- end }}
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        {{- if .Values.persistence.uploads.enabled }}
+        - name: uploads-storage
+          persistentVolumeClaim:
+            claimName: {{ include "openprime-app-backend.fullname" . }}-uploads
+        {{- end }}
+        - name: tmp
+          emptyDir: {}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

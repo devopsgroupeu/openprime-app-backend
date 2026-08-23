@@ -6,8 +6,11 @@
 // services (Injecto, StateCraft, Bedrock all run in/behind this process),
 // executes jobs, and retries transient failures with backoff.
 //
-// Started by server.js unless WORKER_ENABLED=false. stopWorker() drains
-// in-flight jobs and requeues anything still running (graceful shutdown).
+// Started by server.js unless WORKER_ENABLED=false (or by src/worker.js in the
+// dedicated worker Deployment). stopWorker() drains in-flight jobs and
+// requeues only THIS worker's still-running jobs (claimed_by = workerId) on
+// graceful shutdown, so a restart never double-processes another worker's jobs.
+const { randomUUID } = require("crypto");
 const { logger } = require("../utils/logger");
 const jobService = require("./jobService");
 const environmentService = require("./environmentService");
@@ -23,6 +26,10 @@ let stopping = false;
 let loopPromise = null;
 const inFlight = new Set();
 const runningCount = { total: 0, generate: 0, push: 0 };
+
+// Stable per-process lease owner id: stamped on every claimed job so a
+// graceful shutdown only requeues jobs this process claimed.
+const workerId = randomUUID();
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -67,7 +74,7 @@ async function executeJob(job) {
     let result;
     if (job.type === "generate") {
       const zipBuffer = await environmentService.generateInfrastructure(environment);
-      const downloadUrl = await jobService.persistGeneratedZip(job.id, zipBuffer);
+      const downloadUrl = await jobService.persistGeneratedZip(job, zipBuffer);
       result = {
         message: "Infrastructure generated successfully",
         downloadUrl,
@@ -128,7 +135,7 @@ async function workerLoop() {
         continue;
       }
 
-      const job = await jobService.claimNextJob(claimableTypes);
+      const job = await jobService.claimNextJob(claimableTypes, workerId);
       if (!job) {
         await sleep(POLL_INTERVAL_MS);
         continue;
@@ -149,8 +156,17 @@ async function workerLoop() {
   }
 }
 
-function startWorker() {
+async function startWorker() {
   if (loopPromise) return;
+  // Startup recovery sweep: reclaim jobs a prior (now-dead) worker left
+  // running (SIGKILL/OOM/node failure never runs stopWorker). Runs once —
+  // startWorker is idempotent, so this only executes on the first call. Safe
+  // because the worker Deployment uses the Recreate strategy (no sibling
+  // worker can be alive to own those jobs).
+  const recovered = await jobService.recoverStaleJobs(workerId);
+  if (recovered > 0) {
+    logger.warn("Reclaimed stale jobs left by a dead worker", { recovered });
+  }
   logger.info("Job worker started", {
     pollIntervalMs: POLL_INTERVAL_MS,
     maxConcurrentJobs: MAX_CONCURRENT_JOBS,
@@ -166,7 +182,7 @@ async function stopWorker() {
   stopping = true;
   logger.info("Job worker stopping, draining in-flight jobs");
   await Promise.race([Promise.allSettled([...inFlight]), sleep(DRAIN_TIMEOUT_MS)]);
-  const requeued = await jobService.requeueRunningJobs();
+  const requeued = await jobService.requeueRunningJobs(workerId);
   logger.info("Job worker stopped", { requeued });
 }
 

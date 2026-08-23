@@ -283,5 +283,39 @@ describe("Async job API", () => {
 
       expect(response.body.error).toBe("Job has not completed successfully yet");
     });
+
+    it("streams the artifact from the job row when it exists", async () => {
+      jobService.getJobByIdAndUser.mockResolvedValue({
+        id: "job-gen-1",
+        type: "generate",
+        status: "succeeded",
+        payload: { environment: { name: "Test Env" } },
+        artifact: Buffer.from("mock-zip-bytes"),
+      });
+
+      const response = await request(app).get("/api/jobs/job-gen-1/download").expect(200);
+
+      expect(response.headers["content-type"]).toContain("application/zip");
+      expect(response.headers["content-disposition"]).toBe(
+        "attachment; filename=Test Env-infrastructure.zip",
+      );
+      // supertest does not parse non-JSON bodies into res.body; the raw stream
+      // is available as res.text.
+      expect(response.text).toBe("mock-zip-bytes");
+    });
+
+    it("returns 404 when the job has no stored artifact", async () => {
+      jobService.getJobByIdAndUser.mockResolvedValue({
+        id: "job-gen-1",
+        type: "generate",
+        status: "succeeded",
+        payload: { environment: { name: "Test Env" } },
+        artifact: null,
+      });
+
+      const response = await request(app).get("/api/jobs/job-gen-1/download").expect(404);
+
+      expect(response.body.error).toBe("Generated artifact not found");
+    });
   });
 });

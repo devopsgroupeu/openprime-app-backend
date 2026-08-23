@@ -151,12 +151,12 @@ jest.mock("../src/services/statecraftService", () => ({
 jest.mock("../src/services/jobService", () => ({
   enqueue: jest.fn().mockResolvedValue({ id: "job-1", type: "generate", status: "queued" }),
   getJobByIdAndUser: jest.fn().mockResolvedValue(null),
-  getGeneratedZipPath: jest.fn().mockReturnValue("/tmp/nonexistent-infrastructure.zip"),
   claimNextJob: jest.fn().mockResolvedValue(null),
   markSucceeded: jest.fn().mockResolvedValue(true),
   markFailed: jest.fn().mockResolvedValue(true),
   markForRetry: jest.fn().mockResolvedValue(true),
   requeueRunningJobs: jest.fn().mockResolvedValue(0),
+  recoverStaleJobs: jest.fn().mockResolvedValue(0),
   persistGeneratedZip: jest.fn().mockResolvedValue("/jobs/job-1/download"),
   updateEnvironmentStatus: jest.fn().mockResolvedValue(true),
   persistOutcome: jest.fn().mockResolvedValue(true),

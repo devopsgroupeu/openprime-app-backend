@@ -52,6 +52,18 @@ const Job = sequelize.define(
       defaultValue: null,
       comment: "Final error message when the job failed",
     },
+    claimed_by: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      defaultValue: null,
+      comment: "Worker process id that claimed this job (lease owner)",
+    },
+    artifact: {
+      type: DataTypes.BLOB,
+      allowNull: true,
+      defaultValue: null,
+      comment: "Generated ZIP bytes (generate jobs) — stored in DB, not on disk",
+    },
     idempotency_key: {
       type: DataTypes.STRING,
       allowNull: true,
