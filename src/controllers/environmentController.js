@@ -138,6 +138,11 @@ exports.deleteEnvironment = async (req, res, next) => {
 // Async job model (P1): generate/push no longer run inline in the HTTP
 // request. They enqueue a DB-backed job and return 202 + jobId; the in-process
 // worker executes it and the UI polls GET /api/jobs/:jobId.
+//
+// Backward-compatibility shim: the async path is gated behind the
+// `X-Async-Jobs: true` request header. The new frontend sends it; older clients
+// omit it and keep the old synchronous behaviour (generate streams the ZIP,
+// push returns the JSON result inline).
 exports.generateInfrastructure = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -151,16 +156,31 @@ exports.generateInfrastructure = async (req, res, next) => {
       return res.status(404).json({ error: "Environment not found" });
     }
 
-    const idempotencyKey = req.get("Idempotency-Key") || req.body?.idempotencyKey || null;
-    const job = await jobService.enqueue("generate", environment, {
-      idempotencyKey,
-      userId: user.id,
-    });
+    if (req.get("X-Async-Jobs") === "true") {
+      const idempotencyKey = req.get("Idempotency-Key") || req.body?.idempotencyKey || null;
+      const job = await jobService.enqueue("generate", environment, {
+        idempotencyKey,
+        userId: user.id,
+      });
 
-    req.log.info("Generate job enqueued", { environmentId: id, jobId: job.id });
-    res.status(202).json({ jobId: job.id, type: job.type, status: job.status });
+      req.log.info("Generate job enqueued", { environmentId: id, jobId: job.id });
+      return res.status(202).json({ jobId: job.id, type: job.type, status: job.status });
+    }
+
+    req.log.info("Generating infrastructure", { environmentId: id, name: environment.name });
+
+    // Call Injecto service to generate infrastructure
+    const zipBuffer = await environmentService.generateInfrastructure(environment);
+
+    // Set response headers for ZIP download
+    res.setHeader("Content-Type", "application/zip");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename=${environment.name}-infrastructure.zip`,
+    );
+    res.send(zipBuffer);
   } catch (error) {
-    req.log.error("Failed to enqueue generate job", {
+    req.log.error("Failed to generate infrastructure", {
       environmentId: req.params.id,
       error: error.message,
       code: error.code,
@@ -198,16 +218,31 @@ exports.pushInfrastructure = async (req, res, next) => {
       return res.status(400).json({ error: "Git repository is not configured" });
     }
 
-    const idempotencyKey = req.get("Idempotency-Key") || req.body?.idempotencyKey || null;
-    const job = await jobService.enqueue("push", environment, {
-      idempotencyKey,
-      userId: user.id,
-    });
+    if (req.get("X-Async-Jobs") === "true") {
+      const idempotencyKey = req.get("Idempotency-Key") || req.body?.idempotencyKey || null;
+      const job = await jobService.enqueue("push", environment, {
+        idempotencyKey,
+        userId: user.id,
+      });
 
-    req.log.info("Push job enqueued", { environmentId: id, jobId: job.id });
-    res.status(202).json({ jobId: job.id, type: job.type, status: job.status });
+      req.log.info("Push job enqueued", { environmentId: id, jobId: job.id });
+      return res.status(202).json({ jobId: job.id, type: job.type, status: job.status });
+    }
+
+    // Call Injecto service to generate infrastructure
+    req.log.info("Generating infrastructure", { environmentId: id, name: environment.name });
+    const zipBuffer = await environmentService.generateInfrastructure(environment);
+
+    // Call git push service to push infrastructure. This is the one path that
+    // needs the decrypted deploy key.
+    req.log.info("Pushing infrastructure to Git", { environmentId: id, name: environment.name });
+    const gitRepository = await environmentService.getGitRepositoryForPush(id, user.id);
+    const result = await environmentService.pushInfrastructure(zipBuffer, gitRepository);
+
+    // Set response
+    res.json(result);
   } catch (error) {
-    req.log.error("Failed to enqueue push job", {
+    req.log.error("Failed to push infrastructure", {
       environmentId: req.params.id,
       error: error.message,
     });

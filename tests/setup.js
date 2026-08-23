@@ -87,6 +87,19 @@ jest.mock("../src/services/environmentService", () => ({
   updateEnvironmentByUser: jest.fn().mockResolvedValue(null),
   deleteEnvironmentByUser: jest.fn().mockResolvedValue(true),
   convertToYAML: jest.fn().mockResolvedValue("test: yaml"),
+  // Synchronous generate/push path (backward-compatibility shim): the old
+  // frontend omits X-Async-Jobs, so the controller streams the ZIP / pushes
+  // inline. These mocks keep the sync path hermetic in tests.
+  generateInfrastructure: jest.fn().mockResolvedValue(Buffer.from("mock-zip-bytes")),
+  pushInfrastructure: jest.fn().mockResolvedValue({
+    status: "success",
+    message: "Infrastructure pushed to Git",
+  }),
+  getGitRepositoryForPush: jest.fn().mockResolvedValue({
+    url: "git@github.com:test-org/infra-repo.git",
+    branch: "main",
+    sshKey: "decrypted-key",
+  }),
 }));
 
 // Mock logger to reduce noise

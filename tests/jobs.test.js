@@ -31,12 +31,13 @@ describe("Async job API", () => {
   });
 
   describe("POST /api/environments/:id/generate", () => {
-    it("returns 202 with a jobId instead of streaming the ZIP inline", async () => {
+    it("returns 202 with a jobId when X-Async-Jobs is true", async () => {
       environmentService.getEnvironmentByIdAndUser.mockResolvedValue(mockEnvironment);
       jobService.enqueue.mockResolvedValue({ id: "job-gen-1", type: "generate", status: "queued" });
 
       const response = await request(app)
         .post("/api/environments/env-1/generate")
+        .set("X-Async-Jobs", "true")
         .send({})
         .expect(202);
 
@@ -46,6 +47,7 @@ describe("Async job API", () => {
         mockEnvironment,
         expect.objectContaining({ userId: 1 }),
       );
+      expect(environmentService.generateInfrastructure).not.toHaveBeenCalled();
     });
 
     it("returns 404 when the environment does not exist", async () => {
@@ -53,6 +55,7 @@ describe("Async job API", () => {
 
       const response = await request(app)
         .post("/api/environments/env-missing/generate")
+        .set("X-Async-Jobs", "true")
         .send({})
         .expect(404);
 
@@ -66,6 +69,7 @@ describe("Async job API", () => {
 
       await request(app)
         .post("/api/environments/env-1/generate")
+        .set("X-Async-Jobs", "true")
         .set("Idempotency-Key", "gen-key-123")
         .send({})
         .expect(202);
@@ -76,14 +80,51 @@ describe("Async job API", () => {
         expect.objectContaining({ idempotencyKey: "gen-key-123" }),
       );
     });
+
+    it("streams the ZIP synchronously when X-Async-Jobs is absent", async () => {
+      environmentService.getEnvironmentByIdAndUser.mockResolvedValue(mockEnvironment);
+      environmentService.generateInfrastructure.mockResolvedValue(Buffer.from("mock-zip-bytes"));
+
+      const response = await request(app)
+        .post("/api/environments/env-1/generate")
+        .send({})
+        .expect(200);
+
+      expect(response.headers["content-type"]).toContain("application/zip");
+      expect(response.headers["content-disposition"]).toBe(
+        "attachment; filename=Test Env-infrastructure.zip",
+      );
+      // supertest does not parse non-JSON bodies into res.body; the raw stream
+      // is available as res.text.
+      expect(response.text).toBe("mock-zip-bytes");
+      expect(environmentService.generateInfrastructure).toHaveBeenCalledWith(mockEnvironment);
+      expect(jobService.enqueue).not.toHaveBeenCalled();
+    });
+
+    it("returns 404 when the environment does not exist (sync path)", async () => {
+      environmentService.getEnvironmentByIdAndUser.mockResolvedValue(null);
+
+      const response = await request(app)
+        .post("/api/environments/env-missing/generate")
+        .send({})
+        .expect(404);
+
+      expect(response.body.error).toBe("Environment not found");
+      expect(environmentService.generateInfrastructure).not.toHaveBeenCalled();
+      expect(jobService.enqueue).not.toHaveBeenCalled();
+    });
   });
 
   describe("POST /api/environments/:id/push", () => {
-    it("returns 202 with a jobId when git is configured", async () => {
+    it("returns 202 with a jobId when git is configured and X-Async-Jobs is true", async () => {
       environmentService.getEnvironmentByIdAndUser.mockResolvedValue(mockEnvironment);
       jobService.enqueue.mockResolvedValue({ id: "job-push-1", type: "push", status: "queued" });
 
-      const response = await request(app).post("/api/environments/env-1/push").send({}).expect(202);
+      const response = await request(app)
+        .post("/api/environments/env-1/push")
+        .set("X-Async-Jobs", "true")
+        .send({})
+        .expect(202);
 
       expect(response.body).toEqual({ jobId: "job-push-1", type: "push", status: "queued" });
       expect(jobService.enqueue).toHaveBeenCalledWith(
@@ -91,6 +132,7 @@ describe("Async job API", () => {
         mockEnvironment,
         expect.objectContaining({ userId: 1 }),
       );
+      expect(environmentService.pushInfrastructure).not.toHaveBeenCalled();
     });
 
     it("returns 400 when the git repository is not configured", async () => {
@@ -99,7 +141,11 @@ describe("Async job API", () => {
         git_repository: null,
       });
 
-      const response = await request(app).post("/api/environments/env-1/push").send({}).expect(400);
+      const response = await request(app)
+        .post("/api/environments/env-1/push")
+        .set("X-Async-Jobs", "true")
+        .send({})
+        .expect(400);
 
       expect(response.body.error).toBe("Git repository is not configured");
       expect(jobService.enqueue).not.toHaveBeenCalled();
@@ -112,9 +158,57 @@ describe("Async job API", () => {
       );
       jobService.enqueue.mockRejectedValue(conflict);
 
-      const response = await request(app).post("/api/environments/env-1/push").send({}).expect(409);
+      const response = await request(app)
+        .post("/api/environments/env-1/push")
+        .set("X-Async-Jobs", "true")
+        .send({})
+        .expect(409);
 
       expect(response.body.error).toBe("Another push to this repository is already in progress");
+    });
+
+    it("pushes synchronously and returns JSON when X-Async-Jobs is absent", async () => {
+      environmentService.getEnvironmentByIdAndUser.mockResolvedValue(mockEnvironment);
+      environmentService.generateInfrastructure.mockResolvedValue(Buffer.from("mock-zip-bytes"));
+      environmentService.getGitRepositoryForPush.mockResolvedValue({
+        url: "git@github.com:test-org/infra-repo.git",
+        branch: "main",
+        sshKey: "decrypted-key",
+      });
+      environmentService.pushInfrastructure.mockResolvedValue({
+        status: "success",
+        message: "Infrastructure pushed to Git",
+        branch: "main",
+      });
+
+      const response = await request(app).post("/api/environments/env-1/push").send({}).expect(200);
+
+      expect(response.body).toEqual({
+        status: "success",
+        message: "Infrastructure pushed to Git",
+        branch: "main",
+      });
+      expect(environmentService.generateInfrastructure).toHaveBeenCalledWith(mockEnvironment);
+      expect(environmentService.getGitRepositoryForPush).toHaveBeenCalledWith("env-1", 1);
+      expect(environmentService.pushInfrastructure).toHaveBeenCalledWith(
+        Buffer.from("mock-zip-bytes"),
+        { url: "git@github.com:test-org/infra-repo.git", branch: "main", sshKey: "decrypted-key" },
+      );
+      expect(jobService.enqueue).not.toHaveBeenCalled();
+    });
+
+    it("returns 400 when git is not configured (sync path)", async () => {
+      environmentService.getEnvironmentByIdAndUser.mockResolvedValue({
+        ...mockEnvironment,
+        git_repository: null,
+      });
+
+      const response = await request(app).post("/api/environments/env-1/push").send({}).expect(400);
+
+      expect(response.body.error).toBe("Git repository is not configured");
+      expect(environmentService.generateInfrastructure).not.toHaveBeenCalled();
+      expect(environmentService.pushInfrastructure).not.toHaveBeenCalled();
+      expect(jobService.enqueue).not.toHaveBeenCalled();
     });
   });
 
