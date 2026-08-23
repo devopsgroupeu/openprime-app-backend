@@ -16,6 +16,8 @@ const { sequelize, Job, Environment } = require("../models");
 const { logger } = require("../utils/logger");
 
 const JOB_MAX_ATTEMPTS = parseInt(process.env.JOB_MAX_ATTEMPTS || "3", 10);
+const JOB_DEADLINE_MS = parseInt(process.env.JOB_DEADLINE_MS || "600000", 10);
+const JOB_RETENTION_DAYS = parseInt(process.env.JOB_RETENTION_DAYS || "30", 10);
 const RETRY_BASE_DELAY_MS = parseInt(process.env.JOB_RETRY_BASE_DELAY_MS || "5000", 10);
 const RETRY_MAX_DELAY_MS = parseInt(process.env.JOB_RETRY_MAX_DELAY_MS || "300000", 10);
 
@@ -96,6 +98,7 @@ class JobService {
         attempts: 0,
         max_attempts: JOB_MAX_ATTEMPTS,
         next_attempt_at: null,
+        deadline: new Date(Date.now() + JOB_DEADLINE_MS),
       });
       logger.info("Job enqueued", { jobId: job.id, type, environmentId: environment.id });
       return job;
@@ -137,10 +140,15 @@ class JobService {
     try {
       const where = {
         status: "queued",
-        next_attempt_at: { [Op.or]: [null, { [Op.lte]: new Date() }] },
+        [Op.and]: [
+          // next_attempt_at is null or in the past (due for retry)
+          { next_attempt_at: { [Op.or]: [null, { [Op.lte]: new Date() }] } },
+          // Skip jobs past their deadline — they should be failed instead of claimed.
+          { [Op.or]: [{ deadline: null }, { deadline: { [Op.gt]: new Date() } }] },
+        ],
       };
-      if (types && types.length === 1) {
-        where.type = types[0];
+      if (types && types.length > 0) {
+        where.type = { [Op.in]: types };
       }
 
       const job = await Job.findOne({
@@ -291,6 +299,50 @@ class JobService {
 
   async updateEnvironmentStatus(environmentId, status) {
     await Environment.update({ status }, { where: { id: environmentId } });
+  }
+
+  /**
+   * Fail all queued jobs whose deadline has passed. Only queued jobs are
+   * expired: a running job is already executing (e.g. an in-flight git push)
+   * and must be allowed to finish rather than be marked failed mid-flight.
+   * Called periodically by the worker so expired jobs don't accumulate in the
+   * queue. Jobs without a deadline set are never expired.
+   */
+  async failExpiredJobs() {
+    const now = new Date();
+    const expired = await Job.findAll({
+      where: {
+        deadline: { [Op.lt]: now },
+        status: "queued",
+      },
+    });
+    for (const job of expired) {
+      await job.update({
+        status: "failed",
+        error: `Job deadline exceeded (deadline was ${job.deadline.toISOString()})`,
+        finished_at: now,
+      });
+      logger.warn("Failed expired job", { jobId: job.id, type: job.type, deadline: job.deadline });
+    }
+    return expired.length;
+  }
+
+  /**
+   * Delete jobs older than JOB_RETENTION_DAYS that have reached a terminal
+   * state (succeeded, failed, cancelled). Prevents unbounded table growth.
+   */
+  async cleanupOldJobs() {
+    const cutoff = new Date(Date.now() - JOB_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+    const deleted = await Job.destroy({
+      where: {
+        created_at: { [Op.lt]: cutoff },
+        status: { [Op.in]: ["succeeded", "failed", "cancelled"] },
+      },
+    });
+    if (deleted > 0) {
+      logger.info("Cleaned up old jobs", { olderThanDays: JOB_RETENTION_DAYS, deleted });
+    }
+    return deleted;
   }
 
   /**

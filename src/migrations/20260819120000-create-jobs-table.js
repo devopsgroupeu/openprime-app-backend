@@ -87,5 +87,7 @@ module.exports = {
     await queryInterface.sequelize.query(`DROP INDEX IF EXISTS jobs_active_repo_lock;`);
     await queryInterface.sequelize.query(`DROP INDEX IF EXISTS jobs_active_env_lock;`);
     await queryInterface.dropTable("jobs");
+    await queryInterface.sequelize.query(`DROP TYPE IF EXISTS enum_jobs_type;`);
+    await queryInterface.sequelize.query(`DROP TYPE IF EXISTS enum_jobs_status;`);
   },
 };

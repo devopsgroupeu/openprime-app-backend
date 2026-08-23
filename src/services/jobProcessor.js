@@ -24,6 +24,7 @@ const DRAIN_TIMEOUT_MS = parseInt(process.env.JOB_DRAIN_TIMEOUT_MS || "30000", 1
 
 let stopping = false;
 let loopPromise = null;
+let expiryTimer = null;
 const inFlight = new Set();
 const runningCount = { total: 0, generate: 0, push: 0 };
 
@@ -54,7 +55,7 @@ function isRetryable(error) {
   if (error?.response?.status >= 500) return true;
   if (error?.response?.status >= 400 && error?.response?.status < 500) return false;
   if (
-    /failed to connect|could not resolve host|remote end hung up|connection timed out|early eof|unable to access|exceeded deadline/i.test(
+    /failed to connect|could not resolve host|remote end hung up|connection timed out|early eof|unable to access/i.test(
       message,
     )
   ) {
@@ -66,6 +67,11 @@ function isRetryable(error) {
 async function executeJob(job) {
   const startedAt = Date.now();
   try {
+    // Deadline check: fail immediately if the job expired while queued.
+    if (job.deadline && Date.now() > new Date(job.deadline).getTime()) {
+      throw new Error(`Job deadline exceeded (deadline was ${new Date(job.deadline).toISOString()})`);
+    }
+
     const environment = job.payload?.environment;
     if (!environment) {
       throw new Error("Job payload is missing the environment snapshot");
@@ -97,10 +103,6 @@ async function executeJob(job) {
       };
     } else {
       throw new Error(`Unknown job type: ${job.type}`);
-    }
-
-    if (Date.now() - startedAt > JOB_DEADLINE_MS) {
-      throw new Error(`Job exceeded deadline of ${JOB_DEADLINE_MS}ms`);
     }
 
     await jobService.markSucceeded(job, result);
@@ -175,11 +177,33 @@ async function startWorker() {
     jobDeadlineMs: JOB_DEADLINE_MS,
   });
   loopPromise = workerLoop();
+
+  // Periodic sweep: fail jobs past their deadline every 60s. This catches
+  // expired jobs that were never claimed (e.g. because the worker was down).
+  expiryTimer = setInterval(async () => {
+    try {
+      const failed = await jobService.failExpiredJobs();
+      if (failed > 0) {
+        logger.warn("Periodic sweep failed expired jobs", { count: failed });
+      }
+      // Also clean up old terminal jobs to prevent unbounded table growth.
+      const cleaned = await jobService.cleanupOldJobs();
+      if (cleaned > 0) {
+        logger.info("Periodic sweep cleaned up old jobs", { count: cleaned });
+      }
+    } catch (err) {
+      logger.error("Expired job sweep failed", { error: err.message });
+    }
+  }, 60_000);
 }
 
 async function stopWorker() {
   if (!loopPromise) return;
   stopping = true;
+  if (expiryTimer) {
+    clearInterval(expiryTimer);
+    expiryTimer = null;
+  }
   logger.info("Job worker stopping, draining in-flight jobs");
   await Promise.race([Promise.allSettled([...inFlight]), sleep(DRAIN_TIMEOUT_MS)]);
   const requeued = await jobService.requeueRunningJobs(workerId);

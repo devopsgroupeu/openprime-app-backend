@@ -52,6 +52,12 @@ const Job = sequelize.define(
       defaultValue: null,
       comment: "Final error message when the job failed",
     },
+    deadline: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      defaultValue: null,
+      comment: "Jobs past this timestamp are expired and must not be claimed or executed",
+    },
     claimed_by: {
       type: DataTypes.STRING,
       allowNull: true,
