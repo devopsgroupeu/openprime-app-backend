@@ -69,7 +69,9 @@ async function executeJob(job) {
   try {
     // Deadline check: fail immediately if the job expired while queued.
     if (job.deadline && Date.now() > new Date(job.deadline).getTime()) {
-      throw new Error(`Job deadline exceeded (deadline was ${new Date(job.deadline).toISOString()})`);
+      throw new Error(
+        `Job deadline exceeded (deadline was ${new Date(job.deadline).toISOString()})`,
+      );
     }
 
     const environment = job.payload?.environment;
