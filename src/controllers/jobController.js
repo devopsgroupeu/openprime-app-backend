@@ -43,7 +43,7 @@ exports.downloadJobArtifact = async (req, res, next) => {
       user = await userService.findOrCreateUser(req.user);
     }
 
-    const job = await jobService.getJobByIdAndUser(jobId, user.id);
+    const job = await jobService.getJobWithArtifact(jobId, user.id);
     if (!job) {
       return res.status(404).json({ error: "Job not found" });
     }

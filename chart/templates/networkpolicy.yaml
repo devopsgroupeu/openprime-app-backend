@@ -7,8 +7,16 @@ metadata:
     {{- include "openprime-app-backend.labels" . | nindent 4 }}
 spec:
   podSelector:
-    matchLabels:
-      {{- include "openprime-app-backend.selectorLabels" . | nindent 6 }}
+    matchExpressions:
+      - key: app.kubernetes.io/instance
+        operator: In
+        values:
+          - {{ .Release.Name }}
+      - key: app.kubernetes.io/name
+        operator: In
+        values:
+          - {{ include "openprime-app-backend.name" . }}
+          - {{ printf "%s-worker" (include "openprime-app-backend.name" .) }}
   policyTypes:
     - Ingress
     - Egress

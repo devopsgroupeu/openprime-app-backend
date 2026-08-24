@@ -253,13 +253,13 @@ describe("Async job API", () => {
 
   describe("GET /api/jobs/:jobId/download", () => {
     it("returns 404 when the job does not exist", async () => {
-      jobService.getJobByIdAndUser.mockResolvedValue(null);
+      jobService.getJobWithArtifact.mockResolvedValue(null);
 
       await request(app).get("/api/jobs/job-unknown/download").expect(404);
     });
 
     it("returns 400 for a push job (no artifact)", async () => {
-      jobService.getJobByIdAndUser.mockResolvedValue({
+      jobService.getJobWithArtifact.mockResolvedValue({
         id: "job-push-1",
         type: "push",
         status: "succeeded",
@@ -272,7 +272,7 @@ describe("Async job API", () => {
     });
 
     it("returns 409 while the generate job is still running", async () => {
-      jobService.getJobByIdAndUser.mockResolvedValue({
+      jobService.getJobWithArtifact.mockResolvedValue({
         id: "job-gen-1",
         type: "generate",
         status: "running",
@@ -285,7 +285,7 @@ describe("Async job API", () => {
     });
 
     it("streams the artifact from the job row when it exists", async () => {
-      jobService.getJobByIdAndUser.mockResolvedValue({
+      jobService.getJobWithArtifact.mockResolvedValue({
         id: "job-gen-1",
         type: "generate",
         status: "succeeded",
@@ -305,7 +305,7 @@ describe("Async job API", () => {
     });
 
     it("returns 404 when the job has no stored artifact", async () => {
-      jobService.getJobByIdAndUser.mockResolvedValue({
+      jobService.getJobWithArtifact.mockResolvedValue({
         id: "job-gen-1",
         type: "generate",
         status: "succeeded",

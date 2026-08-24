@@ -266,7 +266,10 @@ describe("jobService.recoverStaleJobs", () => {
     const count = await jobService.recoverStaleJobs("my-worker-uuid");
 
     expect(Job.findAll).toHaveBeenCalledWith({
-      where: { status: "running", claimed_by: { [Op.ne]: "my-worker-uuid" } },
+      where: {
+        status: "running",
+        [Op.or]: [{ claimed_by: null }, { claimed_by: { [Op.ne]: "my-worker-uuid" } }],
+      },
     });
     expect(staleJob.update).toHaveBeenCalledWith(
       expect.objectContaining({ status: "queued", claimed_by: null }),
@@ -276,30 +279,27 @@ describe("jobService.recoverStaleJobs", () => {
     expect(count).toBe(1);
   });
 
-  it("does not touch a job already claimed by this worker (claimed_by === workerId)", async () => {
-    // The where clause excludes this worker's own claims, so a job with
-    // claimed_by === workerId is never selected and never updated.
-    Job.findAll.mockResolvedValue([]);
+  it("reclaims running jobs with NULL claimed_by (pre-migration rows)", async () => {
+    const nullClaimJob = {
+      id: "job-null",
+      type: "generate",
+      claimed_by: null,
+      update: jest.fn().mockResolvedValue(true),
+    };
+    Job.findAll.mockResolvedValue([nullClaimJob]);
 
     const count = await jobService.recoverStaleJobs("my-worker-uuid");
 
     expect(Job.findAll).toHaveBeenCalledWith({
-      where: { status: "running", claimed_by: { [Op.ne]: "my-worker-uuid" } },
+      where: {
+        status: "running",
+        [Op.or]: [{ claimed_by: null }, { claimed_by: { [Op.ne]: "my-worker-uuid" } }],
+      },
     });
-    expect(count).toBe(0);
-  });
-
-  it("does not touch non-running jobs", async () => {
-    // Only status=running rows are selected; queued/succeeded/failed jobs are
-    // never returned by the query, so nothing is updated.
-    Job.findAll.mockResolvedValue([]);
-
-    const count = await jobService.recoverStaleJobs("my-worker-uuid");
-
-    expect(Job.findAll).toHaveBeenCalledWith({
-      where: { status: "running", claimed_by: { [Op.ne]: "my-worker-uuid" } },
-    });
-    expect(count).toBe(0);
+    expect(nullClaimJob.update).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "queued", claimed_by: null }),
+    );
+    expect(count).toBe(1);
   });
 });
 

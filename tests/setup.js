@@ -151,6 +151,7 @@ jest.mock("../src/services/statecraftService", () => ({
 jest.mock("../src/services/jobService", () => ({
   enqueue: jest.fn().mockResolvedValue({ id: "job-1", type: "generate", status: "queued" }),
   getJobByIdAndUser: jest.fn().mockResolvedValue(null),
+  getJobWithArtifact: jest.fn().mockResolvedValue(null),
   claimNextJob: jest.fn().mockResolvedValue(null),
   markSucceeded: jest.fn().mockResolvedValue(true),
   markFailed: jest.fn().mockResolvedValue(true),

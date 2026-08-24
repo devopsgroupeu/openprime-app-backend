@@ -5,8 +5,9 @@
 // the HTTP API pods can run with WORKER_ENABLED=false. Deployed as its own
 // Deployment (chart/templates/worker-deployment.yaml) with replicas: 1, which
 // fixes:
-//   - A1: generated ZIPs are written by the worker to the shared uploads PVC
-//     (ReadWriteMany) and served by any API pod.
+//   - A1: generated ZIPs are stored on the jobs row (artifact BYTEA column)
+//     by the worker and served by any API pod via the download endpoint —
+//     no shared filesystem needed.
 //   - A2: a single worker means a rolling restart of the API pods no longer
 //     requeues running jobs and double-pushes into customer repos.
 //

@@ -93,8 +93,7 @@ migration Job so both always run against the same configuration/secret.
 Container env vars for the dedicated worker Deployment: the shared app env
 (plain values + secret refs) plus worker-specific overrides from
 .Values.worker.env. Later entries win in Kubernetes, so worker.env can override
-app.env values (e.g. WORKER_ENABLED=true, which app.env sets to "false" for the
-API pods). The worker also inherits the JOB_ and MAX_CONCURRENT_ job-tuning
+app.env values. The worker also inherits the JOB_ and MAX_CONCURRENT_ job-tuning
 vars, UPLOADS_DIR, and secrets (CREDENTIALS_ENCRYPTION_KEY, DB_PASSWORD) from
 the shared env.
 */}}

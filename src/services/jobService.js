@@ -186,6 +186,13 @@ class JobService {
   }
 
   async getJobByIdAndUser(jobId, userId) {
+    return Job.findOne({
+      where: { id: jobId, user_id: userId },
+      attributes: { exclude: ["artifact"] },
+    });
+  }
+
+  async getJobWithArtifact(jobId, userId) {
     return Job.findOne({ where: { id: jobId, user_id: userId } });
   }
 
@@ -256,12 +263,16 @@ class JobService {
    * anything not claimed by us because the worker Deployment uses the Recreate
    * strategy — no other live worker exists when this runs, so any running job
    * with claimed_by != workerId is genuinely orphaned. The claimed_by filter is
-   * defense-in-depth against a hypothetical sibling. Requeued with backoff so
-   * the poll loop picks them up.
+   * defense-in-depth against a hypothetical sibling. The Op.or also catches
+   * pre-migration rows where claimed_by is NULL — those are orphaned too.
+   * Requeued with backoff so the poll loop picks them up.
    */
   async recoverStaleJobs(workerId) {
     const stale = await Job.findAll({
-      where: { status: "running", claimed_by: { [Op.ne]: workerId } },
+      where: {
+        status: "running",
+        [Op.or]: [{ claimed_by: null }, { claimed_by: { [Op.ne]: workerId } }],
+      },
     });
     for (const job of stale) {
       await job.update({

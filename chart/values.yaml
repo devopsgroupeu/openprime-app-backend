@@ -189,10 +189,10 @@ worker:
   enabled: true
   replicaCount: 1
   # Worker-specific env overrides, merged on top of app.env (later entries win
-  # in Kubernetes). WORKER_ENABLED must be "true" here because app.env sets it
-  # to "false" for the API pods.
-  env:
-    WORKER_ENABLED: "true"
+  # in Kubernetes). The worker entrypoint (src/worker.js) calls startWorker()
+  # unconditionally — it does not read WORKER_ENABLED. That flag only gates the
+  # in-process worker in src/server.js, which the API pods use with "false".
+  env: {}
   resources:
     limits:
       cpu: 500m

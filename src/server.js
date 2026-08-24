@@ -66,6 +66,10 @@ const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100, // limit each IP to 100 requests per windowMs
   message: "Too many requests from this IP, please try again later.",
+  // Job status polling (GET /api/jobs/:jobId) is high-frequency (every 2-5s
+  // for up to ~5 min). Exempt it from the general bucket; the jobs route has
+  // its own generous limiter (see src/routes/jobs.js).
+  skip: (req) => req.path.startsWith("/jobs/"),
 });
 
 app.use("/api/", limiter);
