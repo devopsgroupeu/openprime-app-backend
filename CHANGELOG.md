@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.14.0](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.13.1...v1.14.0) (2026-08-24)
+
+### 🚀 Features
+
+* async job model for generate/push with retries and locking ([b705df1](https://github.com/devopsgroupeu/openprime-app-backend/commit/b705df111c79360f4206405e07906704cc3092f9))
+* worker lease + DB-backed artifacts for async job model (A1/A2) ([8319981](https://github.com/devopsgroupeu/openprime-app-backend/commit/8319981a98e8b1053925e93690133c6f60d5c3af))
+
+### 🐛 Bug Fixes
+
+* address second-round review findings (N1-N7) ([bc12c14](https://github.com/devopsgroupeu/openprime-app-backend/commit/bc12c1438416f64341a02a1b61ad2448422489d8))
+* backward-compatibility shim — sync fallback when X-Async-Jobs header absent ([fbc2b98](https://github.com/devopsgroupeu/openprime-app-backend/commit/fbc2b9888a56e6f95d9511a5d5af720bd2f06b9e))
+* deadline as queue-time bound, retention sweep, and ENUM cleanup (A3/A4/A5) ([96d44f7](https://github.com/devopsgroupeu/openprime-app-backend/commit/96d44f7c45248b6922326aa9b3657ac24bf7c424))
+* return download URL relative to API base to avoid double /api ([64760d6](https://github.com/devopsgroupeu/openprime-app-backend/commit/64760d6ec4548fc65536338a8ed5c744db82c7ac))
+
 ## [1.13.1](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.13.0...v1.13.1) (2026-08-12)
 
 ### 🐛 Bug Fixes
