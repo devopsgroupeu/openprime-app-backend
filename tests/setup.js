@@ -59,6 +59,11 @@ jest.mock("../src/config/database", () => ({
       model.belongsToMany = jest.fn().mockReturnValue(model);
       return model;
     }),
+    transaction: jest.fn().mockResolvedValue({
+      LOCK: { UPDATE: "UPDATE" },
+      commit: jest.fn().mockResolvedValue(true),
+      rollback: jest.fn().mockResolvedValue(true),
+    }),
   },
   testConnection: jest.fn().mockResolvedValue(true),
   initializeDatabase: jest.fn().mockResolvedValue(true),
@@ -82,6 +87,19 @@ jest.mock("../src/services/environmentService", () => ({
   updateEnvironmentByUser: jest.fn().mockResolvedValue(null),
   deleteEnvironmentByUser: jest.fn().mockResolvedValue(true),
   convertToYAML: jest.fn().mockResolvedValue("test: yaml"),
+  // Synchronous generate/push path (backward-compatibility shim): the old
+  // frontend omits X-Async-Jobs, so the controller streams the ZIP / pushes
+  // inline. These mocks keep the sync path hermetic in tests.
+  generateInfrastructure: jest.fn().mockResolvedValue(Buffer.from("mock-zip-bytes")),
+  pushInfrastructure: jest.fn().mockResolvedValue({
+    status: "success",
+    message: "Infrastructure pushed to Git",
+  }),
+  getGitRepositoryForPush: jest.fn().mockResolvedValue({
+    url: "git@github.com:test-org/infra-repo.git",
+    branch: "main",
+    sshKey: "decrypted-key",
+  }),
 }));
 
 // Mock logger to reduce noise
@@ -127,4 +145,26 @@ jest.mock("../src/services/statecraftService", () => ({
   createBackendResources: jest.fn().mockResolvedValue({ success: true, data: {} }),
   deleteBackendResources: jest.fn().mockResolvedValue({ success: true, data: {} }),
   healthCheck: jest.fn().mockResolvedValue({ status: "ok" }),
+}));
+
+// Mock job service (async generate/push job model)
+jest.mock("../src/services/jobService", () => ({
+  enqueue: jest.fn().mockResolvedValue({ id: "job-1", type: "generate", status: "queued" }),
+  getJobByIdAndUser: jest.fn().mockResolvedValue(null),
+  getJobWithArtifact: jest.fn().mockResolvedValue(null),
+  claimNextJob: jest.fn().mockResolvedValue(null),
+  markSucceeded: jest.fn().mockResolvedValue(true),
+  markFailed: jest.fn().mockResolvedValue(true),
+  markForRetry: jest.fn().mockResolvedValue(true),
+  requeueRunningJobs: jest.fn().mockResolvedValue(0),
+  recoverStaleJobs: jest.fn().mockResolvedValue(0),
+  persistGeneratedZip: jest.fn().mockResolvedValue("/jobs/job-1/download"),
+  updateEnvironmentStatus: jest.fn().mockResolvedValue(true),
+  persistOutcome: jest.fn().mockResolvedValue(true),
+  JobConflictError: class JobConflictError extends Error {
+    constructor(message) {
+      super(message);
+      this.status = 409;
+    }
+  },
 }));

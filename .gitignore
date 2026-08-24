@@ -1,4 +1,5 @@
 node_modules/
+.slim/deepwork/
 logs/
 uploads/
 .env

@@ -4,6 +4,7 @@ const environmentService = require("../services/environmentService");
 const userService = require("../services/userService");
 const statecraftService = require("../services/statecraftService");
 const cloudCredentialService = require("../services/cloudCredentialService");
+const jobService = require("../services/jobService");
 
 exports.getUserEnvironments = async (req, res, next) => {
   try {
@@ -134,6 +135,14 @@ exports.deleteEnvironment = async (req, res, next) => {
   }
 };
 
+// Async job model (P1): generate/push no longer run inline in the HTTP
+// request. They enqueue a DB-backed job and return 202 + jobId; the in-process
+// worker executes it and the UI polls GET /api/jobs/:jobId.
+//
+// Backward-compatibility shim: the async path is gated behind the
+// `X-Async-Jobs: true` request header. The new frontend sends it; older clients
+// omit it and keep the old synchronous behaviour (generate streams the ZIP,
+// push returns the JSON result inline).
 exports.generateInfrastructure = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -145,6 +154,17 @@ exports.generateInfrastructure = async (req, res, next) => {
     const environment = await environmentService.getEnvironmentByIdAndUser(id, user.id);
     if (!environment) {
       return res.status(404).json({ error: "Environment not found" });
+    }
+
+    if (req.get("X-Async-Jobs") === "true") {
+      const idempotencyKey = req.get("Idempotency-Key") || req.body?.idempotencyKey || null;
+      const job = await jobService.enqueue("generate", environment, {
+        idempotencyKey,
+        userId: user.id,
+      });
+
+      req.log.info("Generate job enqueued", { environmentId: id, jobId: job.id });
+      return res.status(202).json({ jobId: job.id, type: job.type, status: job.status });
     }
 
     req.log.info("Generating infrastructure", { environmentId: id, name: environment.name });
@@ -196,6 +216,17 @@ exports.pushInfrastructure = async (req, res, next) => {
     const git_check = environment.git_repository;
     if (!git_check?.url || !git_check?.sshKeyConfigured) {
       return res.status(400).json({ error: "Git repository is not configured" });
+    }
+
+    if (req.get("X-Async-Jobs") === "true") {
+      const idempotencyKey = req.get("Idempotency-Key") || req.body?.idempotencyKey || null;
+      const job = await jobService.enqueue("push", environment, {
+        idempotencyKey,
+        userId: user.id,
+      });
+
+      req.log.info("Push job enqueued", { environmentId: id, jobId: job.id });
+      return res.status(202).json({ jobId: job.id, type: job.type, status: job.status });
     }
 
     // Call Injecto service to generate infrastructure

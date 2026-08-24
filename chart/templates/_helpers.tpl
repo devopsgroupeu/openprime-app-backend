@@ -88,3 +88,19 @@ migration Job so both always run against the same configuration/secret.
 {{- end }}
 {{- end }}
 {{- end }}
+
+{{/*
+Container env vars for the dedicated worker Deployment: the shared app env
+(plain values + secret refs) plus worker-specific overrides from
+.Values.worker.env. Later entries win in Kubernetes, so worker.env can override
+app.env values. The worker also inherits the JOB_ and MAX_CONCURRENT_ job-tuning
+vars, UPLOADS_DIR, and secrets (CREDENTIALS_ENCRYPTION_KEY, DB_PASSWORD) from
+the shared env.
+*/}}
+{{- define "openprime-app-backend.workerEnv" -}}
+{{- include "openprime-app-backend.env" . }}
+{{- range $key, $value := .Values.worker.env }}
+- name: {{ $key }}
+  value: {{ $value | quote }}
+{{- end }}
+{{- end }}

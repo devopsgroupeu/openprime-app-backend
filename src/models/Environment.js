@@ -85,6 +85,48 @@ const Environment = sequelize.define(
       comment:
         "Per-environment Terraform state key prefix (env/<id>). NULL = legacy fixed key (aws.tfstate) for environments created before this column existed.",
     },
+    last_generate_at: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      defaultValue: null,
+      comment: "When the last generate job finished (async job model)",
+    },
+    last_generate_status: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      defaultValue: null,
+      comment: "Outcome of the last generate job: succeeded | failed",
+    },
+    last_generate_error: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      defaultValue: null,
+      comment: "Error message of the last failed generate job",
+    },
+    last_push_at: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      defaultValue: null,
+      comment: "When the last push job finished (async job model)",
+    },
+    last_push_status: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      defaultValue: null,
+      comment: "Outcome of the last push job: succeeded | failed",
+    },
+    last_push_error: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      defaultValue: null,
+      comment: "Error message of the last failed push job",
+    },
+    last_push_commit: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      defaultValue: null,
+      comment: "Commit hash pushed by the last successful push job",
+    },
     user_id: {
       type: DataTypes.UUID,
       allowNull: true,

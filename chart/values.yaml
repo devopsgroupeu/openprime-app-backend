@@ -14,8 +14,10 @@ podDisruptionBudget:
 
 # Graceful shutdown - a preStop delay lets the load balancer deregister this
 # pod's endpoint before SIGTERM, avoiding 5xx during rollouts/scale-down.
-# terminationGracePeriodSeconds bounds the total shutdown window (note: a
-# synchronous git push can exceed this — the async job model is the real fix).
+# terminationGracePeriodSeconds bounds the total shutdown window. Generate/push
+# run as async DB-backed jobs processed by the dedicated worker Deployment (see
+# the worker section below): on SIGTERM the worker drains in-flight jobs and
+# requeues the rest, so a long git push no longer blocks a rollout.
 terminationGracePeriodSeconds: 45
 gracefulShutdown:
   enabled: true
@@ -142,6 +144,21 @@ app:
     INFRA_TEMPLATES_REPO_URL: "https://github.com/devopsgroupeu/openprime-infra-templates.git"
     INFRA_TEMPLATES_BRANCH: "main"
 
+    # Async job worker (generate/push) — DB-backed queue. The worker runs in a
+    # dedicated single-instance Deployment (see the worker section below), so
+    # the API pods must NOT run an in-process worker (WORKER_ENABLED=false).
+    # Concurrency caps protect Injecto/StateCraft/Bedrock from saturation.
+    WORKER_ENABLED: "false"
+    JOB_POLL_INTERVAL_MS: "3000"
+    MAX_CONCURRENT_JOBS: "2"
+    MAX_CONCURRENT_GENERATE: "2"
+    MAX_CONCURRENT_PUSH: "1"
+    JOB_MAX_ATTEMPTS: "3"
+    JOB_DEADLINE_MS: "600000"
+    JOB_RETENTION_DAYS: "30"
+    JOB_DRAIN_TIMEOUT_MS: "30000"
+    UPLOADS_DIR: "/app/uploads"
+
   # Secrets (should be provided via external secret management)
   # Use existing secret instead of creating one from values
   existingSecret: ""
@@ -160,6 +177,29 @@ app:
     AWS_ACCESS_KEY_ID: "secret"
     AWS_SECRET_ACCESS_KEY: "secret"
     BEDROCK_INFERENCE_PROFILE_ARN: "secret"
+
+# Dedicated single-instance job worker (generate/push). Runs as its own
+# Deployment (worker-deployment.yaml) with replicas: 1 so a rolling restart of
+# the API pods never requeues running jobs (which caused duplicate git pushes
+# into customer repos). Generated ZIPs are stored on the jobs row (artifact
+# BYTEA column), so the uploads PVC stays ReadWriteOnce — no shared filesystem
+# is needed. The worker receives the full app.env (JOB_*/MAX_CONCURRENT_*/
+# UPLOADS_DIR and secrets) plus the worker.env overrides below.
+worker:
+  enabled: true
+  replicaCount: 1
+  # Worker-specific env overrides, merged on top of app.env (later entries win
+  # in Kubernetes). The worker entrypoint (src/worker.js) calls startWorker()
+  # unconditionally — it does not read WORKER_ENABLED. That flag only gates the
+  # in-process worker in src/server.js, which the API pods use with "false".
+  env: {}
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 250m
+      memory: 256Mi
 
 # Database migrations (umzug) run as a Helm pre-install/pre-upgrade hook Job, so
 # the schema is applied before the app rolls out. The app refuses to start in
@@ -185,7 +225,8 @@ migrations:
 # Persistent volumes
 persistence:
   enabled: true
-  # Storage for uploads
+  # Storage for uploads. ReadWriteOnce: generated ZIPs are stored in the DB
+  # (jobs.artifact), not on this volume, so it does not need to be shared.
   uploads:
     enabled: true
     storageClass: ""
