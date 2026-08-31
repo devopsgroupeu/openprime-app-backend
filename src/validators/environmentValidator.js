@@ -58,24 +58,9 @@ exports.validateEnvironment = [
 
   body("services").optional().isObject().withMessage("Services must be an object"),
 
-  body("services.vpc.enabled").optional().isBoolean().withMessage("VPC enabled must be a boolean"),
-
-  body("services.vpc.cidr")
-    .optional()
-    .matches(/^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$/)
-    .withMessage("Invalid CIDR format"),
-
-  body("services.eks.enabled").optional().isBoolean().withMessage("EKS enabled must be a boolean"),
-
-  body("services.eks.version")
-    .optional()
-    .matches(/^\d+\.\d+$/)
-    .withMessage("Invalid Kubernetes version format"),
-
-  body("services.rds.enabled").optional().isBoolean().withMessage("RDS enabled must be a boolean"),
-
-  body("services.rds.engine")
-    .optional()
-    .isIn(["postgres", "mysql", "mariadb", "aurora"])
-    .withMessage("Invalid RDS engine"),
+  // No per-service field rules here on purpose. Which services exist and what
+  // values they accept is the catalog's business (GET /api/catalog), extracted
+  // from the templates themselves — duplicating it here means the wizard can
+  // offer a value the API then rejects. The rds.engine whitelist did exactly
+  // that, and services.eks.version guarded a key no payload has ever carried.
 ];
