@@ -141,6 +141,11 @@ jest.mock("../src/middleware/requestLogger", () => ({
 }));
 
 // Mock statecraft service
+jest.mock("../src/services/catalogService", () => ({
+  getCatalog: jest.fn().mockResolvedValue({ doc: { services: {} }, etag: '"test"' }),
+  resetCache: jest.fn(),
+}));
+
 jest.mock("../src/services/statecraftService", () => ({
   createBackendResources: jest.fn().mockResolvedValue({ success: true, data: {} }),
   deleteBackendResources: jest.fn().mockResolvedValue({ success: true, data: {} }),

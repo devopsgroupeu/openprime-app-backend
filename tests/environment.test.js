@@ -34,4 +34,27 @@ describe("Environment API", () => {
       expect(response.body).toHaveProperty("errors");
     });
   });
+
+  // Guards the OP-207 cut: per-service field rules moved to the catalog, so the
+  // API must accept values the old hardcoded whitelist would have rejected.
+  // Re-adding `services.rds.engine.isIn([...])` fails here rather than in the
+  // wizard, where it shows up as a 400 on a value the UI itself offered.
+  describe("validation does not duplicate the catalog", () => {
+    it("accepts an rds engine outside the removed 4-engine whitelist", async () => {
+      const res = await request(app)
+        .post("/api/environments")
+        .set("Authorization", "Bearer test-token")
+        .send({
+          name: "catalog-values",
+          provider: "aws",
+          region: "eu-west-1",
+          services: {
+            rds: { enabled: true, engine: "aurora-postgresql", version: "15.4" },
+            eks: { enabled: true, kubernetesVersion: "1.34" },
+          },
+        });
+
+      expect([200, 201]).toContain(res.status);
+    });
+  });
 });
