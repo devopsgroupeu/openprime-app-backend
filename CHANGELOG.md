@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.15.0](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.14.0...v1.15.0) (2026-08-31)
+
+### 🚀 Features
+
+* **catalog:** add GET /api/catalog proxy and drop hardcoded service validators ([d11c509](https://github.com/devopsgroupeu/openprime-app-backend/commit/d11c5098d3f37fd9eef5b769f9174e1b047473d9))
+
 ## [1.14.0](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.13.1...v1.14.0) (2026-08-24)
 
 ### 🚀 Features
