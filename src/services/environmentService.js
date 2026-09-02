@@ -444,6 +444,12 @@ class EnvironmentService {
         ? {
             url: environment.git_repository.url || "",
             branch: environment.git_repository.branch || "HEAD",
+            // The generated workflow filters `on.push.branches`, which YAML needs
+            // as a sequence. Injecto renders a list as JSON, so the array form
+            // substitutes into `branches: [...]` while the scalar above keeps
+            // serving `targetRevision`. Without it the pipeline stayed pinned to
+            // main and never fired for any other branch (OP-235).
+            branches: [environment.git_repository.branch || "HEAD"],
           }
         : null,
       // Map user-supplied git repo URL into the path Injecto uses for @param argocd.git_repo_url
