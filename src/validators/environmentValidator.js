@@ -24,16 +24,25 @@ exports.validateEnvironment = [
   // Baked into every generated Terraform resource name, so it has to be
   // machine-shaped. Immutable after creation (see updateEnvironmentByUser).
   //
-  // The bound must not be stricter than what the wizard can produce. It
-  // auto-suggests the prefix from the environment name by stripping everything
-  // outside [a-z0-9] and appending '-', and names run to 50 characters — so a
-  // long name yields a 51-character prefix. An all-punctuation name yields an
-  // empty one, hence `values: "falsy"`. 63 is the ceiling most AWS resource
-  // names allow, which is the real constraint here.
+  // The canonical charset here is the strictest of the AWS resource types
+  // global_prefix feeds (see openprime-infra-templates/templates/terraform/
+  // aws/{s3,database,elasticache}.tf): RDS/Aurora identifiers and ElastiCache
+  // replication group ids both require a lowercase-letter-first name and
+  // reject two consecutive hyphens, which S3 bucket names allow but these
+  // don't. The wizard (BasicConfigStep.jsx) sanitizes to the same shape as it
+  // types, so an accepted value here should never have been rejectable there.
+  //
+  // 63 is the ceiling most AWS resource names allow, which is the real
+  // length constraint. `values: "falsy"` covers an empty auto-suggested
+  // prefix (e.g. an environment name that's all digits).
   body("globalPrefix")
     .optional({ values: "falsy" })
-    .matches(/^[A-Za-z0-9][A-Za-z0-9-]{0,62}$/)
-    .withMessage("Global prefix must be alphanumeric with hyphens, max 63 characters"),
+    .matches(/^[a-z](-?[a-z0-9]+)*-?$/)
+    .withMessage(
+      "Global prefix must start with a lowercase letter, contain only lowercase letters, digits and hyphens, and must not contain consecutive hyphens",
+    )
+    .isLength({ max: 63 })
+    .withMessage("Global prefix must be at most 63 characters"),
 
   body("gitRepository.url")
     .optional({ values: "falsy" })
