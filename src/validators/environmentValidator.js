@@ -1,6 +1,7 @@
 // src/validators/environmentValidator.js
 const { body } = require("express-validator");
 const { validateGitRepositoryUrl } = require("./gitUrl");
+const { validateServices } = require("./serviceSchema");
 
 // Characters that are dangerous once a value is interpolated into generated HCL
 // or a shell-adjacent context. `name` is deliberately a targeted denylist rather
@@ -56,11 +57,23 @@ exports.validateEnvironment = [
     .matches(/^[a-z0-9-]+$/)
     .withMessage("Region must contain only lowercase letters, digits and hyphens"),
 
-  body("services").optional().isObject().withMessage("Services must be an object"),
+  body("services")
+    .optional()
+    .isObject()
+    .withMessage("Services must be an object")
+    .custom(async (services, { req }) => {
+      const provider = req.body.provider;
+      const { valid, errors } = await validateServices(services, { provider });
+      if (!valid) {
+        throw new Error(errors.join("; "));
+      }
+      return true;
+    }),
 
-  // No per-service field rules here on purpose. Which services exist and what
-  // values they accept is the catalog's business (GET /api/catalog), extracted
-  // from the templates themselves — duplicating it here means the wizard can
-  // offer a value the API then rejects. The rds.engine whitelist did exactly
-  // that, and services.eks.version guarded a key no payload has ever carried.
+  // Per-service structural validation (known service keys, known field keys,
+  // field types, number bounds) runs via validateServices above. Dropdown
+  // option values and text validation patterns are still the catalog's
+  // business (GET /api/catalog) — the backend does not duplicate them. OP-207
+  // will swap getServiceSchema() from a static object to a catalog fetch
+  // without changing call sites.
 ];
