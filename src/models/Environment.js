@@ -46,6 +46,13 @@ const Environment = sequelize.define(
       type: DataTypes.STRING,
       allowNull: true,
     },
+    domain: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      defaultValue: null,
+      comment:
+        "Domain the cluster publishes ingresses on. NULL/empty = no host-based ingresses are generated.",
+    },
     status: {
       type: DataTypes.ENUM("pending", "deploying", "running", "stopped", "failed", "destroyed"),
       allowNull: false,
