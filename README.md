@@ -70,47 +70,70 @@ npm test
 
 ## API Endpoints
 
+Everything below is mounted under `/api` and requires a Keycloak JWT, except
+`GET /health`, which is served on the server root.
+
 ### Environments
 
-- `GET /api/environments` - Get all environments
-- `GET /api/environments/:id` - Get specific environment
-- `POST /api/environments` - Create new environment
-- `PUT /api/environments/:id` - Update environment
-- `DELETE /api/environments/:id` - Delete environment
-- `POST /api/environments/:id/deploy` - Deploy environment
-- `GET /api/environments/:id/status` - Get environment status
-- `GET /api/environments/:id/export` - Export as IaC
+- `GET /api/environments` - List the caller's environments
+- `GET /api/environments/:id` - Get one environment
+- `POST /api/environments` - Create an environment
+- `PUT /api/environments/:id` - Update it. `name` and `globalPrefix` are immutable and a differing value is rejected with 400
+- `DELETE /api/environments/:id` - Delete it
+- `POST /api/environments/:id/generate` - Start a generation job
+- `POST /api/environments/:id/push` - Push the generated repository to the customer's Git
+- `POST /api/environments/terraform-backend/create` - Create the S3 state backend via StateCraft
 
-### Helm Charts
+### Jobs
 
-- `GET /api/helm/charts` - Get available charts
-- `GET /api/helm/charts/:chartName` - Get chart details
-- `GET /api/helm/charts/:chartName/values` - Get default values
-- `POST /api/helm/charts/:chartName/validate` - Validate values
-- `POST /api/helm/generate-values` - Generate values from config
+Generation and push are asynchronous: `generate` returns a job, which is polled
+and then downloaded.
 
-### Terraform
+- `GET /api/jobs/:jobId` - Job status: `queued`, `running`, `succeeded`, `failed`
+- `GET /api/jobs/:jobId/download` - Download the generated archive
 
-- `POST /api/terraform/generate` - Generate Terraform code
-- `POST /api/terraform/validate` - Validate configuration
-- `GET /api/terraform/modules` - Get available modules
-- `POST /api/terraform/plan` - Plan Terraform changes
-- `POST /api/terraform/export` - Export Terraform package
+### Catalog
 
-### Deployments
+- `GET /api/catalog` - The service catalog, proxied from Injecto
 
-- `GET /api/deployments` - Get all deployments
-- `GET /api/deployments/:id` - Get deployment details
-- `POST /api/deployments` - Create deployment
-- `GET /api/deployments/:id/logs` - Get deployment logs
-- `POST /api/deployments/:id/rollback` - Rollback deployment
+The wizard is built from this document rather than from a hardcoded list. The
+`ETag` is the templates commit, so a client holding the current catalog gets a
+`304`; a `Warning: 110` header means it is being served from cache because Injecto
+was unreachable.
 
-### Settings
+### Cloud credentials
 
-- `GET /api/settings` - Get all settings
-- `PUT /api/settings` - Update settings
-- `GET /api/settings/cloud-providers` - Get cloud providers
-- `POST /api/settings/api-keys` - Generate API key
+- `GET /api/cloud-credentials` - List credentials
+- `POST /api/cloud-credentials` - Create one
+- `GET /api/cloud-credentials/:credentialId` - Get one
+- `PUT /api/cloud-credentials/:credentialId` - Update one
+- `DELETE /api/cloud-credentials/:credentialId` - Delete one
+- `PUT /api/cloud-credentials/:credentialId/default` - Mark as the account default
+
+Secrets are AES-256-GCM encrypted at rest and redacted from every response.
+
+### Users
+
+- `GET /api/users/me` - Current user
+- `PUT /api/users/me` - Update current user
+- `GET /api/users/me/preferences` - Get preferences
+- `PUT /api/users/me/preferences` - Update preferences
+- `GET /api/users` - List all users (**admin only**)
+
+### AI
+
+- `POST /api/ai/chat` - Configuration assistance via AWS Bedrock
+
+### Health
+
+- `GET /health` - Health check. On the server root, outside `/api` and outside the rate limiter
+
+> **These endpoints used to be documented and have never existed:** everything under
+> `/api/helm/*`, `/api/terraform/*`, `/api/deployments/*` and `/api/settings/*`, plus
+> `POST /api/environments/:id/deploy`, `GET /api/environments/:id/status` and
+> `GET /api/environments/:id/export`. `src/routes/` contains exactly `ai.js`,
+> `catalog.js`, `cloudCredentials.js`, `environments.js`, `jobs.js` and `users.js`.
+> Deploying is the customer's own generated pipeline's job, not this API's.
 
 ## Project Structure
 
@@ -120,33 +143,35 @@ openprime-backend/
 │   ├── server.js              # Express server setup
 │   ├── routes/                # API routes
 │   │   ├── index.js
+│   │   ├── ai.js
+│   │   ├── catalog.js
+│   │   ├── cloudCredentials.js
 │   │   ├── environments.js
-│   │   ├── helm.js
-│   │   ├── terraform.js
-│   │   ├── deployments.js
-│   │   ├── templates.js
-│   │   └── settings.js
+│   │   ├── jobs.js
+│   │   └── users.js
 │   ├── controllers/           # Route controllers
+│   │   ├── aiController.js
+│   │   ├── catalogController.js
+│   │   ├── cloudCredentialController.js
 │   │   ├── environmentController.js
-│   │   ├── helmController.js
-│   │   ├── terraformController.js
-│   │   ├── deploymentController.js
-│   │   ├── templateController.js
-│   │   └── settingsController.js
+│   │   ├── jobController.js
+│   │   └── userController.js
 │   ├── services/              # Business logic
-│   │   ├── pythonService.js
-│   │   ├── environmentService.js
-│   │   ├── helmService.js
-│   │   ├── terraformService.js
-│   │   ├── deploymentService.js
-│   │   └── settingsService.js
+│   │   ├── aiService.js
+│   │   ├── catalogService.js       # caches the Injecto catalog
+│   │   ├── cloudCredentialService.js
+│   │   ├── environmentService.js   # prepareInjectoData() lives here
+│   │   ├── jobProcessor.js
+│   │   ├── jobService.js
+│   │   ├── statecraftService.js
+│   │   └── userService.js
+│   ├── migrations/            # umzug migrations, applied by a PreSync job
 │   ├── validators/            # Input validation
 │   │   └── environmentValidator.js
 │   ├── middleware/            # Custom middleware
 │   │   └── errorHandler.js
 │   └── utils/                 # Utilities
 │       └── logger.js
-├── python/                    # Python processing scripts
 ├── uploads/                   # File uploads directory
 ├── logs/                      # Application logs
 ├── tests/                     # Test files
