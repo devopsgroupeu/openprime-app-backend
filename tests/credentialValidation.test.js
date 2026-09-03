@@ -15,6 +15,13 @@ jest.mock("@aws-sdk/client-sts", () => ({
 const { STSClient } = require("@aws-sdk/client-sts");
 const { validateAwsCredentials } = require("../src/services/credentialValidationService");
 
+const STS_CONFIG = {
+  region: "us-east-1",
+  credentials: { accessKeyId: "AKIAEXAMPLE", secretAccessKey: "secret" },
+  requestHandler: { requestTimeout: 5000, connectionTimeout: 2000 },
+  maxAttempts: 2,
+};
+
 describe("credentialValidationService.validateAwsCredentials", () => {
   beforeEach(() => {
     mockSend.mockReset();
@@ -36,15 +43,12 @@ describe("credentialValidationService.validateAwsCredentials", () => {
     });
   });
 
-  it("builds the STS client with explicit credentials in us-east-1", async () => {
+  it("builds the STS client with explicit credentials, timeouts and retries", async () => {
     mockSend.mockResolvedValue({ Account: "1", Arn: "arn" });
 
     await validateAwsCredentials("AKIAEXAMPLE", "secret");
 
-    expect(STSClient).toHaveBeenCalledWith({
-      region: "us-east-1",
-      credentials: { accessKeyId: "AKIAEXAMPLE", secretAccessKey: "secret" },
-    });
+    expect(STSClient).toHaveBeenCalledWith(STS_CONFIG);
   });
 
   it("returns invalid_credentials for InvalidClientTokenId", async () => {
@@ -72,14 +76,67 @@ describe("credentialValidationService.validateAwsCredentials", () => {
     expect(result.reason).toBe("temporary_failure");
   });
 
-  it("returns network_error for other errors", async () => {
-    mockSend.mockRejectedValue(new Error("ECONNREFUSED"));
+  it("returns temporary_failure for AWS 5xx responses", async () => {
+    const error = new Error("Service Unavailable");
+    error.name = "UnrecognizedServiceException";
+    error.$metadata = { httpStatusCode: 503 };
+    mockSend.mockRejectedValue(error);
+
+    const result = await validateAwsCredentials("AKIAEXAMPLE", "secret");
+
+    expect(result.valid).toBe(false);
+    expect(result.reason).toBe("temporary_failure");
+  });
+
+  it("returns network_error for Node system errors", async () => {
+    const error = new Error("connect ECONNREFUSED 127.0.0.1:443");
+    error.code = "ECONNREFUSED";
+    mockSend.mockRejectedValue(error);
 
     const result = await validateAwsCredentials("AKIAEXAMPLE", "secret");
 
     expect(result.valid).toBe(false);
     expect(result.reason).toBe("network_error");
   });
+
+  it("returns network_error when the message mentions fetch failed", async () => {
+    mockSend.mockRejectedValue(new Error("fetch failed"));
+
+    const result = await validateAwsCredentials("AKIAEXAMPLE", "secret");
+
+    expect(result.valid).toBe(false);
+    expect(result.reason).toBe("network_error");
+  });
+
+  it("returns unknown for unrecognized errors", async () => {
+    mockSend.mockRejectedValue(new Error("Something completely unexpected"));
+
+    const result = await validateAwsCredentials("AKIAEXAMPLE", "secret");
+
+    expect(result.valid).toBe(false);
+    expect(result.reason).toBe("unknown");
+  });
+
+  it.each([
+    ["missing access key", undefined, "secret"],
+    ["missing secret key", "AKIAEXAMPLE", undefined],
+    ["empty access key", "", "secret"],
+    ["empty secret key", "AKIAEXAMPLE", ""],
+    ["whitespace-only access key", "   ", "secret"],
+    ["whitespace-only secret key", "AKIAEXAMPLE", "   "],
+  ])(
+    "rejects %s without constructing an STS client",
+    async (_label, accessKeyId, secretAccessKey) => {
+      const result = await validateAwsCredentials(accessKeyId, secretAccessKey);
+
+      expect(result).toEqual({
+        valid: false,
+        reason: "invalid_credentials",
+        message: "Both access key ID and secret access key are required",
+      });
+      expect(STSClient).not.toHaveBeenCalled();
+    },
+  );
 
   it("always calls client.destroy()", async () => {
     mockSend.mockResolvedValue({ Account: "1", Arn: "arn" });
@@ -91,7 +148,9 @@ describe("credentialValidationService.validateAwsCredentials", () => {
   });
 
   it("calls client.destroy() even when validation fails", async () => {
-    mockSend.mockRejectedValue(new Error("ECONNREFUSED"));
+    const error = new Error("connect ECONNREFUSED 127.0.0.1:443");
+    error.code = "ECONNREFUSED";
+    mockSend.mockRejectedValue(error);
 
     await validateAwsCredentials("AKIAEXAMPLE", "secret");
 

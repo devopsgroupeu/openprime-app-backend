@@ -2,6 +2,10 @@ const cloudCredentialService = require("../services/cloudCredentialService");
 const userService = require("../services/userService");
 const { validateAwsCredentials } = require("../services/credentialValidationService");
 
+function isProvided(value) {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
 class CloudCredentialController {
   async createCredential(req, res, next) {
     try {
@@ -194,8 +198,10 @@ class CloudCredentialController {
         return res.status(404).json({ error: "Credential not found", requestId: req.requestId });
       }
 
-      const { accessKey, secretKey } = credential.credentials || {};
-      if (!accessKey || !secretKey) {
+      const storedCredentials = credential.credentials || {};
+      const accessKey = storedCredentials.accessKey ?? storedCredentials.accessKeyId;
+      const secretKey = storedCredentials.secretKey ?? storedCredentials.secretAccessKey;
+      if (!isProvided(accessKey) || !isProvided(secretKey)) {
         return res.status(400).json({
           error: "Credential does not contain AWS access key and secret key",
           requestId: req.requestId,
@@ -213,6 +219,10 @@ class CloudCredentialController {
           valid: true,
           accountId: validation.accountId,
           arn: validation.arn,
+          // The identifier is hand-typed and feeds Terraform bucket names
+          // (`${identifier}-terraform-${env}`), so surface a mismatch with the
+          // STS account id instead of silently building misnamed buckets.
+          accountIdMismatch: validation.accountId !== credential.identifier,
           message: "Credentials are valid",
           lastValidated,
         });
