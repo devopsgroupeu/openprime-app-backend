@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.17.0](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.16.0...v1.17.0) (2026-09-03)
+
+### 🚀 Features
+
+* **environments:** carry a customer domain through to generation ([#34](https://github.com/devopsgroupeu/openprime-app-backend/issues/34)) ([266ee61](https://github.com/devopsgroupeu/openprime-app-backend/commit/266ee610ad169bd52d7b4a39c47b3e812c5b17ad))
+
 ## [1.16.0](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.15.0...v1.16.0) (2026-09-02)
 
 ### 🚀 Features
