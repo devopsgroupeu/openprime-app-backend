@@ -9,10 +9,13 @@
 // This test encodes that coupling so changing either side surfaces it here.
 const { validateEnvironment } = require("../src/validators/environmentValidator");
 
-// Mirrors openprime-app/src/components/modals/wizard/BasicConfigStep.jsx
+// Mirrors openprime-app/src/components/modals/wizard/BasicConfigStep.jsx.
+// The leading-digit strip exists because RDS/Aurora identifiers and
+// ElastiCache replication group ids require a letter first (OP-231) -
+// stricter than the name field's own [a-z0-9] rule.
 const slugify = (value) => (value || "").toLowerCase().replace(/[^a-z0-9]/g, "");
 const derivePrefix = (name) => {
-  const slug = slugify(name);
+  const slug = slugify(name).replace(/^[0-9]+/, "");
   return slug ? `${slug}-` : "";
 };
 
@@ -42,6 +45,11 @@ describe("globalPrefix accepts everything the wizard can auto-suggest", () => {
     ["My Env 2", "myenv2-"],
     ["production-environment-for-the-eu-west-region", "productionenvironmentfortheeuwestregion-"],
     ["a".repeat(NAME_MAX), `${"a".repeat(NAME_MAX)}-`],
+    // A name starting with a digit must not derive a digit-leading prefix -
+    // RDS/Aurora identifiers and ElastiCache replication group ids reject
+    // one at apply.
+    ["2024-prod", "prod-"],
+    ["123", ""],
   ])("accepts the prefix derived from %p", async (name, expectedPrefix) => {
     expect(derivePrefix(name)).toBe(expectedPrefix);
 
@@ -80,6 +88,11 @@ describe("globalPrefix still rejects unsafe values", () => {
     ["-leading-hyphen", "leading hyphen"],
     ["$(whoami)-", "shell-ish"],
     [`${"a".repeat(70)}-`, "over the 63 ceiling"],
+    // RDS/Aurora identifiers and ElastiCache replication group ids reject
+    // a leading digit and two consecutive hyphens at apply - OP-231.
+    ["1app-", "leading digit"],
+    ["app--test-", "double hyphen"],
+    ["app_test-", "underscore"],
   ])("rejects %p (%s)", async (prefix) => {
     const result = await runValidators({
       name: "demo",
