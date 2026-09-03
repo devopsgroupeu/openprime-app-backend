@@ -57,6 +57,16 @@ exports.validateEnvironment = [
     .matches(/^[a-z0-9-]+$/)
     .withMessage("Region must contain only lowercase letters, digits and hyphens"),
 
+  // Substituted into generated ingress hosts, external-dns domainFilters and
+  // Terraform strings, so it is a positive allow-list rather than a denylist:
+  // DNS labels only, at least two of them, alphabetic TLD, 253 characters max.
+  // `values: "falsy"` because an empty domain is the documented way to ship no
+  // host-based ingresses, and the field is editable after creation.
+  body("domain")
+    .optional({ values: "falsy" })
+    .matches(/^(?=.{1,253}$)([A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,63}$/)
+    .withMessage("Domain must be a hostname such as example.com"),
+
   body("services")
     .optional()
     .isObject()

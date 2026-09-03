@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.17.0](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.16.0...v1.17.0) (2026-09-03)
+
+### 🚀 Features
+
+* **environments:** carry a customer domain through to generation ([#34](https://github.com/devopsgroupeu/openprime-app-backend/issues/34)) ([266ee61](https://github.com/devopsgroupeu/openprime-app-backend/commit/266ee610ad169bd52d7b4a39c47b3e812c5b17ad))
+
+## [1.16.0](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.15.0...v1.16.0) (2026-09-02)
+
+### 🚀 Features
+
+* **generation:** send the configured branch as an array so the workflow trigger can use it ([#33](https://github.com/devopsgroupeu/openprime-app-backend/issues/33)) ([cd5f1e5](https://github.com/devopsgroupeu/openprime-app-backend/commit/cd5f1e541742341f755a788ffd10e1168d4f3e99))
+
 ## [1.15.0](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.14.0...v1.15.0) (2026-08-31)
 
 ### 🚀 Features
