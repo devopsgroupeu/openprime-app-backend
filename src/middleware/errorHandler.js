@@ -18,6 +18,7 @@ exports.errorHandler = (err, req, res, _next) => {
     return res.status(400).json({
       error: "Validation Error",
       details: err.errors,
+      requestId: req.requestId,
     });
   }
 
@@ -25,6 +26,7 @@ exports.errorHandler = (err, req, res, _next) => {
   if (err.name === "JsonWebTokenError") {
     return res.status(401).json({
       error: "Invalid token",
+      requestId: req.requestId,
     });
   }
 
@@ -32,12 +34,14 @@ exports.errorHandler = (err, req, res, _next) => {
   if (err.code === "LIMIT_FILE_SIZE") {
     return res.status(400).json({
       error: "File too large",
+      requestId: req.requestId,
     });
   }
 
   // Default error
   res.status(statusCode).json({
     error: err.message || "Internal Server Error",
+    requestId: req.requestId,
     ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
   });
 };
