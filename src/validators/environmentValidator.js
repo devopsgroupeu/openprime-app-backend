@@ -81,9 +81,12 @@ exports.validateEnvironment = [
     }),
 
   // Per-service structural validation (known service keys, known field keys,
-  // field types, number bounds) runs via validateServices above. Dropdown
-  // option values and text validation patterns are still the catalog's
-  // business (GET /api/catalog) — the backend does not duplicate them. OP-207
-  // will swap getServiceSchema() from a static object to a catalog fetch
-  // without changing call sites.
+  // field types, number bounds) runs via validateServices above, which
+  // derives its schema from the same runtime catalog document the wizard
+  // renders from (getServiceSchema() → catalogService.getCatalog()). The API
+  // therefore cannot reject a value the wizard offers. Dropdown option
+  // values and text validation patterns remain the catalog's business — the
+  // backend does not duplicate them. If the catalog is unreachable,
+  // per-service checks are skipped rather than rejecting payloads we cannot
+  // verify; Injecto still validates every value at generation time.
 ];

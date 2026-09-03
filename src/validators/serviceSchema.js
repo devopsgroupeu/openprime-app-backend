@@ -1,15 +1,27 @@
 // src/validators/serviceSchema.js
 //
 // Shared server-side schema validation for the JSONB environment.services
-// payload. This is the interim implementation: a static schema mirroring the
-// 14 user-facing AWS services defined in the frontend (openprime-app
-// src/config/services/aws.js). OP-207 will replace getServiceSchema() with a
-// fetch from GET /api/catalog so the schema is derived from the templates
-// themselves rather than duplicated here. Call sites — validateServices and
-// validateServicesForGeneration — will not change.
+// payload. The schema is derived from the same runtime catalog document the
+// wizard renders from (catalogService.getCatalog() → GET /api/catalog), so
+// the API cannot reject a value the wizard offers — both sides read one
+// doc and cannot drift apart.
+//
+// Only the REQUIRED_WHEN overlay below is hand-maintained: the catalog
+// cannot express conditional requirements (e.g. kmsKeyId is required when
+// enableEncryption=true).
+//
+// If the catalog is unreachable, per-service checks are skipped (fail-open)
+// rather than rejecting payloads we cannot verify — rejecting values the
+// wizard may well be offering is the exact failure mode OP-207 fixed.
+// Injecto still validates every value at generation time, so fail-open
+// never lets a bad value through to the templates.
+
+const { getCatalog } = require("../services/catalogService");
+const { logger } = require("../utils/logger");
 
 /**
- * Field type constants matching the frontend FIELD_TYPES.
+ * Field type constants matching the catalog's control types (and the
+ * frontend FIELD_TYPES).
  */
 const FIELD_TYPES = {
   TEXT: "text",
@@ -23,262 +35,157 @@ const FIELD_TYPES = {
 };
 
 /**
- * Static schema for the 14 user-facing AWS services.
- *
- * Each service maps to an object with a `fields` property. Each field maps to
- * a descriptor with:
- *   - type: one of FIELD_TYPES
- *   - min/max: numeric bounds (for NUMBER fields)
- *   - requiredWhen: { field, value } — the field is required when a sibling
- *       field equals `value`. Used for conditional fields that have no
- *       template default (e.g. kmsKeyId is required when enableEncryption=true).
- *
- * Dropdown option values and text validation patterns are deliberately
- * omitted: those are the catalog's business (GET /api/catalog), not the
- * backend's. Enforcing them here means the wizard can offer a value the API
- * then rejects — exactly the bug OP-207 fixed.
- *
- * `lambda` is excluded (available: false in the wizard) — the backend should
- * reject lambda configurations until the service is re-enabled.
+ * Conditional requirements the catalog cannot express. Each entry makes the
+ * field required when the sibling field equals `value`.
  */
-const STATIC_SCHEMA = {
-  vpc: {
-    fields: {
-      enabled: { type: FIELD_TYPES.TOGGLE },
-      cidr: { type: FIELD_TYPES.TEXT },
-      azCount: { type: FIELD_TYPES.DROPDOWN },
-      createPublicSubnets: { type: FIELD_TYPES.TOGGLE },
-      createPrivateSubnets: { type: FIELD_TYPES.TOGGLE },
-      createIntraSubnets: { type: FIELD_TYPES.TOGGLE },
-      createDatabaseSubnets: { type: FIELD_TYPES.TOGGLE },
-      createDatabaseSubnetGroup: { type: FIELD_TYPES.TOGGLE },
-      natGateway: { type: FIELD_TYPES.DROPDOWN },
-      publicSubnetTags: { type: FIELD_TYPES.OBJECT },
-      privateSubnetTags: { type: FIELD_TYPES.OBJECT },
-      databaseSubnetTags: { type: FIELD_TYPES.OBJECT },
-      enableVpnGateway: { type: FIELD_TYPES.TOGGLE },
-      enableFlowLogs: { type: FIELD_TYPES.TOGGLE },
-      enableDnsHostnames: { type: FIELD_TYPES.TOGGLE },
-      enableDnsSupport: { type: FIELD_TYPES.TOGGLE },
-    },
-  },
-  eks: {
-    fields: {
-      enabled: { type: FIELD_TYPES.TOGGLE },
-      kubernetesVersion: { type: FIELD_TYPES.DROPDOWN },
-      enableClusterCreatorAdminPermissions: { type: FIELD_TYPES.TOGGLE },
-      endpointPublicAccess: { type: FIELD_TYPES.TOGGLE },
-      authenticationMode: { type: FIELD_TYPES.DROPDOWN },
-      enableIrsa: { type: FIELD_TYPES.TOGGLE },
-      defaultNodeGroupAmiType: { type: FIELD_TYPES.DROPDOWN },
-      defaultNodeGroupInstanceTypes: { type: FIELD_TYPES.MULTISELECT },
-      defaultNodeGroupCapacityType: { type: FIELD_TYPES.DROPDOWN },
-      defaultNodeGroupMinSize: { type: FIELD_TYPES.NUMBER, min: 0, max: 100 },
-      defaultNodeGroupMaxSize: { type: FIELD_TYPES.NUMBER, min: 1, max: 100 },
-      defaultNodeGroupDesiredSize: { type: FIELD_TYPES.NUMBER, min: 0, max: 100 },
-      defaultNodeGroupMaxUnavailable: { type: FIELD_TYPES.NUMBER, min: 1, max: 10 },
-      networkPolicyEnable: { type: FIELD_TYPES.TOGGLE },
-      karpenterEnabled: { type: FIELD_TYPES.TOGGLE },
-      karpenterNodepoolArch: { type: FIELD_TYPES.DROPDOWN },
-      karpenterNodepoolCapacityType: { type: FIELD_TYPES.DROPDOWN },
-    },
-  },
-  rds: {
-    fields: {
-      enabled: { type: FIELD_TYPES.TOGGLE },
-      engine: { type: FIELD_TYPES.DROPDOWN },
-      version: { type: FIELD_TYPES.TEXT },
-      majorEngineVersion: { type: FIELD_TYPES.TEXT },
-      family: { type: FIELD_TYPES.TEXT },
-      instanceClass: { type: FIELD_TYPES.DROPDOWN },
-      allocatedStorage: { type: FIELD_TYPES.NUMBER, min: 20, max: 1000 },
-      maxAllocatedStorage: { type: FIELD_TYPES.NUMBER, min: 20, max: 10000 },
-      multiAz: { type: FIELD_TYPES.TOGGLE },
-      backupRetention: { type: FIELD_TYPES.NUMBER, min: 0, max: 35 },
-      backupWindow: { type: FIELD_TYPES.TEXT },
-      maintenanceWindow: { type: FIELD_TYPES.TEXT },
-      deletionProtection: { type: FIELD_TYPES.TOGGLE },
-      skipFinalSnapshot: { type: FIELD_TYPES.TOGGLE },
-      applyImmediately: { type: FIELD_TYPES.TOGGLE },
-      autoMinorVersionUpgrade: { type: FIELD_TYPES.TOGGLE },
-      publiclyAccessible: { type: FIELD_TYPES.TOGGLE },
-      iamDatabaseAuthenticationEnabled: { type: FIELD_TYPES.TOGGLE },
-      manageMasterUserPassword: { type: FIELD_TYPES.TOGGLE },
-      performanceInsights: { type: FIELD_TYPES.TOGGLE },
-      performanceInsightsRetentionPeriod: { type: FIELD_TYPES.NUMBER, min: 7, max: 731 },
-      monitoringInterval: { type: FIELD_TYPES.DROPDOWN },
-      deleteAutomatedBackups: { type: FIELD_TYPES.TOGGLE },
-    },
-  },
-  aurora: {
-    fields: {
-      enabled: { type: FIELD_TYPES.TOGGLE },
-      engine: { type: FIELD_TYPES.DROPDOWN },
-      engineVersion: { type: FIELD_TYPES.TEXT },
-      instances: { type: FIELD_TYPES.OBJECT },
-      serverlessv2MinCapacity: { type: FIELD_TYPES.NUMBER, min: 0, max: 128 },
-      serverlessv2MaxCapacity: { type: FIELD_TYPES.NUMBER, min: 0.5, max: 128 },
-      serverlessv2SecondsUntilAutoPause: { type: FIELD_TYPES.NUMBER, min: 300, max: 86400 },
-      backupRetention: { type: FIELD_TYPES.NUMBER, min: 1, max: 35 },
-      deletionProtection: { type: FIELD_TYPES.TOGGLE },
-      manageMasterUserPassword: { type: FIELD_TYPES.TOGGLE },
-      enableHttpEndpoint: { type: FIELD_TYPES.TOGGLE },
-      iamDatabaseAuthenticationEnabled: { type: FIELD_TYPES.TOGGLE },
-      monitoringInterval: { type: FIELD_TYPES.DROPDOWN },
-      applyImmediately: { type: FIELD_TYPES.TOGGLE },
-      skipFinalSnapshot: { type: FIELD_TYPES.TOGGLE },
-      deleteAutomatedBackups: { type: FIELD_TYPES.TOGGLE },
-    },
-  },
-  opensearch: {
-    fields: {
-      enabled: { type: FIELD_TYPES.TOGGLE },
-      domainName: { type: FIELD_TYPES.TEXT },
-      version: { type: FIELD_TYPES.DROPDOWN },
-      instanceType: { type: FIELD_TYPES.DROPDOWN },
-      instanceCount: { type: FIELD_TYPES.NUMBER, min: 1, max: 20 },
-      dedicatedMasterEnabled: { type: FIELD_TYPES.TOGGLE },
-      dedicatedMasterType: { type: FIELD_TYPES.DROPDOWN },
-      dedicatedMasterCount: { type: FIELD_TYPES.NUMBER, min: 0, max: 5 },
-      ebsEnabled: { type: FIELD_TYPES.TOGGLE },
-      ebsVolumeSize: { type: FIELD_TYPES.NUMBER, min: 10, max: 1000 },
-      ebsVolumeType: { type: FIELD_TYPES.DROPDOWN },
-      customEndpointEnabled: { type: FIELD_TYPES.TOGGLE },
-      nodeToNodeEncryption: { type: FIELD_TYPES.TOGGLE },
-      enforceHttps: { type: FIELD_TYPES.TOGGLE },
-      tlsSecurityPolicy: { type: FIELD_TYPES.DROPDOWN },
-      advancedSecurityEnabled: { type: FIELD_TYPES.TOGGLE },
-      internalUserDatabaseEnabled: { type: FIELD_TYPES.TOGGLE },
-      masterUserName: { type: FIELD_TYPES.TEXT },
-      createAccessPolicy: { type: FIELD_TYPES.TOGGLE },
-      ipAddressType: { type: FIELD_TYPES.DROPDOWN },
-      allowExplicitIndex: { type: FIELD_TYPES.TOGGLE },
-    },
-  },
-  ecr: {
-    fields: {
-      enabled: { type: FIELD_TYPES.TOGGLE },
-      repositoryNames: { type: FIELD_TYPES.ARRAY },
-      repositoryType: { type: FIELD_TYPES.DROPDOWN },
-      imageTagMutability: { type: FIELD_TYPES.DROPDOWN },
-      encryptionType: { type: FIELD_TYPES.DROPDOWN },
-      enableScanning: { type: FIELD_TYPES.TOGGLE },
-      scanType: { type: FIELD_TYPES.DROPDOWN },
-      createLifecyclePolicy: { type: FIELD_TYPES.TOGGLE },
-      lifecyclePolicyMaxImages: { type: FIELD_TYPES.NUMBER, min: 1, max: 1000 },
-      enableReplication: { type: FIELD_TYPES.TOGGLE },
-      replicationDestinations: { type: FIELD_TYPES.ARRAY },
-    },
-  },
-  s3: {
-    fields: {
-      enabled: { type: FIELD_TYPES.TOGGLE },
-      bucketNames: { type: FIELD_TYPES.ARRAY },
-    },
-  },
-  elasticache: {
-    fields: {
-      enabled: { type: FIELD_TYPES.TOGGLE },
-      engine: { type: FIELD_TYPES.DROPDOWN },
-      engineVersion: { type: FIELD_TYPES.TEXT },
-      nodeType: { type: FIELD_TYPES.DROPDOWN },
-      numCacheNodes: { type: FIELD_TYPES.NUMBER, min: 1, max: 20 },
-      parameterGroupFamily: { type: FIELD_TYPES.DROPDOWN },
-      transitEncryption: { type: FIELD_TYPES.TOGGLE },
-      atRestEncryption: { type: FIELD_TYPES.TOGGLE },
-      authTokenEnabled: { type: FIELD_TYPES.TOGGLE },
-      maintenanceWindow: { type: FIELD_TYPES.TEXT },
-      snapshotRetentionLimit: { type: FIELD_TYPES.NUMBER, min: 0, max: 35 },
-      snapshotWindow: { type: FIELD_TYPES.TEXT },
-      automaticFailover: { type: FIELD_TYPES.TOGGLE },
-      multiAz: { type: FIELD_TYPES.TOGGLE },
-    },
-  },
-  msk: {
-    fields: {
-      enabled: { type: FIELD_TYPES.TOGGLE },
-      kafkaVersion: { type: FIELD_TYPES.DROPDOWN },
-      numberOfBrokerNodes: { type: FIELD_TYPES.NUMBER, min: 2, max: 30 },
-      brokerNodeInstanceType: { type: FIELD_TYPES.DROPDOWN },
-    },
-  },
-  waf: {
-    fields: {
-      enabled: { type: FIELD_TYPES.TOGGLE },
-      name: { type: FIELD_TYPES.TEXT },
-      description: { type: FIELD_TYPES.TEXT },
-      scope: { type: FIELD_TYPES.DROPDOWN },
-      cloudwatchMetricsEnabled: { type: FIELD_TYPES.TOGGLE },
-      metricName: { type: FIELD_TYPES.TEXT },
-      sampledRequestsEnabled: { type: FIELD_TYPES.TOGGLE },
-    },
-  },
-  sqs: {
-    fields: {
-      enabled: { type: FIELD_TYPES.TOGGLE },
-      queueNames: { type: FIELD_TYPES.ARRAY },
-      fifoQueues: { type: FIELD_TYPES.TOGGLE },
-      contentBasedDeduplication: { type: FIELD_TYPES.TOGGLE },
-      visibilityTimeout: { type: FIELD_TYPES.NUMBER, min: 0, max: 43200 },
-      messageRetention: { type: FIELD_TYPES.NUMBER, min: 60, max: 1209600 },
-      maxMessageSize: { type: FIELD_TYPES.NUMBER, min: 1024, max: 262144 },
-      delaySeconds: { type: FIELD_TYPES.NUMBER, min: 0, max: 900 },
-      receiveWaitTime: { type: FIELD_TYPES.NUMBER, min: 0, max: 20 },
-      createDeadLetterQueue: { type: FIELD_TYPES.TOGGLE },
-      maxReceiveCount: { type: FIELD_TYPES.NUMBER, min: 1, max: 1000 },
-      enableEncryption: { type: FIELD_TYPES.TOGGLE },
-    },
-  },
+const REQUIRED_WHEN = {
   sns: {
-    fields: {
-      enabled: { type: FIELD_TYPES.TOGGLE },
-      topicNames: { type: FIELD_TYPES.ARRAY },
-      fifoTopics: { type: FIELD_TYPES.TOGGLE },
-      contentBasedDeduplication: { type: FIELD_TYPES.TOGGLE },
-      enableEncryption: { type: FIELD_TYPES.TOGGLE },
-      kmsKeyId: {
-        type: FIELD_TYPES.TEXT,
-        requiredWhen: { field: "enableEncryption", value: true },
-      },
-    },
+    kmsKeyId: { field: "enableEncryption", value: true },
   },
   cloudfront: {
-    fields: {
-      enabled: { type: FIELD_TYPES.TOGGLE },
-      distributionNames: { type: FIELD_TYPES.ARRAY },
-      priceClass: { type: FIELD_TYPES.DROPDOWN },
-      enableIpv6: { type: FIELD_TYPES.TOGGLE },
-      enableWaf: { type: FIELD_TYPES.TOGGLE },
-      enableLogging: { type: FIELD_TYPES.TOGGLE },
-      loggingBucket: {
-        type: FIELD_TYPES.TEXT,
-        requiredWhen: { field: "enableLogging", value: true },
-      },
-    },
-  },
-  route53: {
-    fields: {
-      enabled: { type: FIELD_TYPES.TOGGLE },
-      zoneNames: { type: FIELD_TYPES.ARRAY },
-      privateZones: { type: FIELD_TYPES.TOGGLE },
-      forceDestroy: { type: FIELD_TYPES.TOGGLE },
-      enableDnssec: { type: FIELD_TYPES.TOGGLE },
-    },
+    loggingBucket: { field: "enableLogging", value: true },
   },
 };
 
 /**
+ * Map a catalog field descriptor to a control type for checkFieldType.
+ *
+ * The catalog carries `type` (the UI control: toggle/text/dropdown/…) which
+ * matches FIELD_TYPES 1:1. When a field lacks it, fall back to `valueType`
+ * (the data type: string/number/boolean). Unknown descriptors get undefined,
+ * which checkFieldType treats as "accept any value" — never a rejection the
+ * catalog did not ask for.
+ */
+function controlTypeFor(field) {
+  if (typeof field.type === "string" && field.type) {
+    return field.type;
+  }
+  switch (field.valueType) {
+    case "boolean":
+      return FIELD_TYPES.TOGGLE;
+    case "number":
+      return FIELD_TYPES.NUMBER;
+    case "array":
+    case "list":
+      return FIELD_TYPES.ARRAY;
+    case "string":
+      return FIELD_TYPES.TEXT;
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * Catalog min/max arrive as strings ("0", "100"). Coerce to finite numbers;
+ * anything else (missing, empty, non-numeric) means "no bound".
+ */
+function coerceBound(value) {
+  if (value === undefined || value === null || value === "") {
+    return undefined;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+/**
+ * Transform a catalog document into the shape validateServices consumes:
+ * { [service]: { fields: { [field]: { type, min?, max?, requiredWhen? } } } }.
+ *
+ * Dropdown option values and text validation patterns are deliberately not
+ * enforced: the catalog serves them for the wizard UI, but re-checking them
+ * here would duplicate the catalog's business. Structural type and bounds
+ * checks catch malformed payloads; Injecto catches bad values at generation.
+ */
+function transformCatalogDoc(doc) {
+  const services = (doc && doc.services) || {};
+  const schema = {};
+
+  for (const [serviceKey, service] of Object.entries(services)) {
+    const catalogFields = (service && service.fields) || {};
+    const fields = {};
+
+    for (const [fieldName, field] of Object.entries(catalogFields)) {
+      const descriptor = { type: controlTypeFor(field) };
+      const min = coerceBound(field.min);
+      const max = coerceBound(field.max);
+      if (min !== undefined) descriptor.min = min;
+      if (max !== undefined) descriptor.max = max;
+      fields[fieldName] = descriptor;
+    }
+
+    // Overlay hand-maintained conditional requirements — only onto fields
+    // the catalog actually serves, so we never require something the
+    // wizard cannot offer.
+    const overlay = REQUIRED_WHEN[serviceKey];
+    if (overlay) {
+      for (const [fieldName, requiredWhen] of Object.entries(overlay)) {
+        if (fields[fieldName]) {
+          fields[fieldName].requiredWhen = requiredWhen;
+        }
+      }
+    }
+
+    schema[serviceKey] = { fields };
+  }
+
+  return schema;
+}
+
+// Cache keyed by the catalog etag (the templates commit sha): the same doc
+// always transforms to the same schema, so we transform once per commit.
+let schemaCache = { key: null, schema: null };
+
+/**
  * Single accessor for the service schema.
  *
- * Today this returns a static object. OP-207 will replace the body with a
- * fetch from GET /api/catalog (via catalogService) so the schema is derived
- * from the templates themselves. Call sites (validateServices,
- * validateServicesForGeneration) will not change.
+ * Derives it from the runtime catalog (catalogService.getCatalog()), so the
+ * schema and the wizard read one document and cannot drift apart. Throws
+ * when the catalog is unavailable — callers that can tolerate that (the
+ * validators below) should use loadSchema() instead.
  *
  * @returns {Promise<object>} the service schema
  */
 async function getServiceSchema() {
-  return STATIC_SCHEMA;
+  const { doc, etag } = await getCatalog();
+
+  if (schemaCache.schema && schemaCache.key === etag) {
+    return schemaCache.schema;
+  }
+
+  const schema = transformCatalogDoc(doc);
+  schemaCache = { key: etag, schema };
+  return schema;
+}
+
+/**
+ * Test seam — drop the transformed-schema cache so the next
+ * getServiceSchema() call re-reads the (possibly re-mocked) catalog.
+ */
+function resetSchemaCache() {
+  schemaCache = { key: null, schema: null };
+}
+
+/**
+ * Load the schema for validation, failing open when it cannot be loaded.
+ *
+ * @returns {Promise<object|null>} the schema, or null to skip per-service
+ *   validation (Injecto still validates at generation time)
+ */
+async function loadSchema() {
+  try {
+    const schema = await getServiceSchema();
+    if (!schema || Object.keys(schema).length === 0) {
+      logger.warn("Service validation skipped — catalog document has no services");
+      return null;
+    }
+    return schema;
+  } catch (error) {
+    logger.warn("Service validation skipped — catalog unavailable", {
+      code: error.code,
+      message: error.message,
+    });
+    return null;
+  }
 }
 
 /**
@@ -331,8 +238,11 @@ function checkFieldType(value, expectedType) {
  * Does NOT check dropdown option values or text validation patterns —
  * those are the catalog's business (GET /api/catalog), not the backend's.
  *
- * For non-AWS providers, only the top-level object check runs (the static
- * schema only covers AWS services).
+ * For non-AWS providers, only the top-level object check runs (the catalog
+ * currently only covers AWS services).
+ *
+ * If the catalog is unreachable, per-service checks are skipped (fail-open)
+ * rather than rejecting payloads we cannot verify.
  *
  * @param {*} services - the services payload from the request body
  * @param {{ provider?: string }} [options]
@@ -350,14 +260,16 @@ async function validateServices(services, { provider } = {}) {
     return { valid: false, errors };
   }
 
-  // Only validate per-service structure for AWS — the static schema only
-  // covers AWS services. OP-207 will make this catalog-driven for all
-  // providers.
+  // Only validate per-service structure for AWS — the catalog currently
+  // only covers AWS services.
   if (provider && provider !== "aws") {
     return { valid: true, errors };
   }
 
-  const schema = await getServiceSchema();
+  const schema = await loadSchema();
+  if (!schema) {
+    return { valid: true, errors };
+  }
 
   for (const [serviceName, serviceConfig] of Object.entries(services)) {
     if (!(serviceName in schema)) {
@@ -423,6 +335,9 @@ async function validateServices(services, { provider } = {}) {
  * Non-boolean enabled values (e.g. "true", 1) are already rejected by the
  * structural pass (TOGGLE type check), so they never reach this function.
  *
+ * If the catalog is unreachable, per-service checks (including requiredWhen)
+ * are skipped — Injecto still validates every value at generation time.
+ *
  * @param {*} services - the environment's services payload
  * @param {{ provider?: string }} [options]
  * @returns {Promise<{ valid: boolean, errors: string[] }>}
@@ -442,7 +357,11 @@ async function validateServicesForGeneration(services, { provider } = {}) {
     return { valid: true, errors: [] };
   }
 
-  const schema = await getServiceSchema();
+  const schema = await loadSchema();
+  if (!schema) {
+    return { valid: true, errors: [] };
+  }
+
   const errors = [];
 
   for (const [serviceName, serviceConfig] of Object.entries(services)) {
@@ -483,5 +402,6 @@ module.exports = {
   getServiceSchema,
   validateServices,
   validateServicesForGeneration,
+  resetSchemaCache,
   FIELD_TYPES,
 };
