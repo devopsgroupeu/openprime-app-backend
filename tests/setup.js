@@ -140,9 +140,14 @@ jest.mock("../src/middleware/requestLogger", () => ({
   },
 }));
 
-// Mock statecraft service
+// Mock catalog service — resolves a realistic catalog document (see
+// tests/fixtures/catalogDoc.js) so catalog-derived service validation in
+// environmentValidator/serviceSchema behaves as in production.
 jest.mock("../src/services/catalogService", () => ({
-  getCatalog: jest.fn().mockResolvedValue({ doc: { services: {} }, etag: '"test"' }),
+  getCatalog: jest.fn().mockResolvedValue({
+    doc: require("./fixtures/catalogDoc"),
+    etag: '"test"',
+  }),
   resetCache: jest.fn(),
 }));
 

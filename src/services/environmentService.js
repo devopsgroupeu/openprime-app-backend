@@ -12,6 +12,7 @@ const simpleGit = require("simple-git");
 const { validateGitRepositoryUrl } = require("../validators/gitUrl");
 const { parseGenerationFailure, generationError } = require("../utils/generationErrors");
 const { mergeGitRepository } = require("../utils/sshKey");
+const { validateServicesForGeneration } = require("../validators/serviceSchema");
 
 // Validate required environment variable
 if (!process.env.INJECTO_SERVICE_URL) {
@@ -211,6 +212,25 @@ class EnvironmentService {
 
       // Prepare configuration data for Injecto
       const configData = this.prepareInjectoData(environment);
+
+      // Validate the services payload before handing it to Injecto. A malformed
+      // payload that passes create/update validation (which is structural only)
+      // can still produce silently wrong infrastructure — a missing
+      // conditionally-required field or a non-boolean enabled that
+      // prepareInjectoData's truthy check lets through. Fail loudly here with a
+      // 422 so the user gets an actionable message rather than a broken ZIP.
+      const { valid, errors } = await validateServicesForGeneration(environment.services, {
+        provider: environment.provider,
+      });
+      if (!valid) {
+        const error = new Error(
+          `Service configuration is invalid for generation: ${errors.join("; ")}`,
+        );
+        error.statusCode = 422;
+        error.code = "SERVICE_VALIDATION_FAILED";
+        error.details = errors;
+        throw error;
+      }
 
       logger.info("Calling Injecto service", {
         url: `${injectoUrl}/process-git-download`,
