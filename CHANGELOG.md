@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.18.0](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.17.0...v1.18.0) (2026-09-09)
+
+### 🚀 Features
+
+* **validation:** add shared server-side schema validation for JSONB services payload ([0f0ac39](https://github.com/devopsgroupeu/openprime-app-backend/commit/0f0ac3967c532ceeaad3a5c6fb3144fc8d67508b))
+* **validation:** derive the service schema from the runtime catalog ([b38c15a](https://github.com/devopsgroupeu/openprime-app-backend/commit/b38c15a8d83580bbc9caebca76616ba8fab6dcaa))
+
+### 📚 Documentation
+
+* list the endpoints the API actually serves ([#35](https://github.com/devopsgroupeu/openprime-app-backend/issues/35)) ([07866aa](https://github.com/devopsgroupeu/openprime-app-backend/commit/07866aa6ca6c1713f8c31c8aea959c31783ba6de))
+
 ## [1.17.0](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.16.0...v1.17.0) (2026-09-03)
 
 ### 🚀 Features
