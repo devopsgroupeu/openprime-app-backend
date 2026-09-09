@@ -74,10 +74,13 @@ async function validateAwsCredentials(accessKeyId, secretAccessKey) {
       secretAccessKey,
     },
     // Bound the outbound call: create/update block on this, so fail fast
-    // instead of hanging on the SDK's default (no) timeouts.
+    // instead of hanging on the SDK's default (no) timeouts. Without
+    // throwOnRequestTimeout the SDK only logs a warning at requestTimeout and
+    // keeps the socket open — the flag turns the deadline into an actual abort.
     requestHandler: {
       requestTimeout: 5000,
       connectionTimeout: 2000,
+      throwOnRequestTimeout: true,
     },
     maxAttempts: 2,
   });

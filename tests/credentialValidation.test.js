@@ -18,7 +18,11 @@ const { validateAwsCredentials } = require("../src/services/credentialValidation
 const STS_CONFIG = {
   region: "us-east-1",
   credentials: { accessKeyId: "AKIAEXAMPLE", secretAccessKey: "secret" },
-  requestHandler: { requestTimeout: 5000, connectionTimeout: 2000 },
+  requestHandler: {
+    requestTimeout: 5000,
+    connectionTimeout: 2000,
+    throwOnRequestTimeout: true,
+  },
   maxAttempts: 2,
 };
 
