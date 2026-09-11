@@ -11,7 +11,7 @@ describe("Environment API", () => {
         region: "us-east-1",
         services: {
           vpc: { enabled: true, cidr: "10.0.0.0/16" },
-          eks: { enabled: true, version: "1.28" },
+          eks: { enabled: true, kubernetesVersion: "1.34" },
         },
       };
 

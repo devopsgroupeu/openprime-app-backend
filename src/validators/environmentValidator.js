@@ -2,6 +2,7 @@
 const { body } = require("express-validator");
 const { validateGitRepositoryUrl } = require("./gitUrl");
 const { Environment } = require("../models");
+const { validateServices } = require("./serviceSchema");
 
 // Characters that are dangerous once a value is interpolated into generated HCL
 // or a shell-adjacent context. `name` is deliberately a targeted denylist rather
@@ -117,11 +118,36 @@ exports.validateEnvironment = [
     .matches(/^[a-z0-9-]+$/)
     .withMessage("Region must contain only lowercase letters, digits and hyphens"),
 
-  body("services").optional().isObject().withMessage("Services must be an object"),
+  // Substituted into generated ingress hosts, external-dns domainFilters and
+  // Terraform strings, so it is a positive allow-list rather than a denylist:
+  // DNS labels only, at least two of them, alphabetic TLD, 253 characters max.
+  // `values: "falsy"` because an empty domain is the documented way to ship no
+  // host-based ingresses, and the field is editable after creation.
+  body("domain")
+    .optional({ values: "falsy" })
+    .matches(/^(?=.{1,253}$)([A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,63}$/)
+    .withMessage("Domain must be a hostname such as example.com"),
 
-  // No per-service field rules here on purpose. Which services exist and what
-  // values they accept is the catalog's business (GET /api/catalog), extracted
-  // from the templates themselves — duplicating it here means the wizard can
-  // offer a value the API then rejects. The rds.engine whitelist did exactly
-  // that, and services.eks.version guarded a key no payload has ever carried.
+  body("services")
+    .optional()
+    .isObject()
+    .withMessage("Services must be an object")
+    .custom(async (services, { req }) => {
+      const provider = req.body.provider;
+      const { valid, errors } = await validateServices(services, { provider });
+      if (!valid) {
+        throw new Error(errors.join("; "));
+      }
+      return true;
+    }),
+
+  // Per-service structural validation (known service keys, known field keys,
+  // field types, number bounds) runs via validateServices above, which
+  // derives its schema from the same runtime catalog document the wizard
+  // renders from (getServiceSchema() → catalogService.getCatalog()). The API
+  // therefore cannot reject a value the wizard offers. Dropdown option
+  // values and text validation patterns remain the catalog's business — the
+  // backend does not duplicate them. If the catalog is unreachable,
+  // per-service checks are skipped rather than rejecting payloads we cannot
+  // verify; Injecto still validates every value at generation time.
 ];

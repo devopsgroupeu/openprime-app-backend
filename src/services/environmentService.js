@@ -12,6 +12,7 @@ const simpleGit = require("simple-git");
 const { validateGitRepositoryUrl } = require("../validators/gitUrl");
 const { parseGenerationFailure, generationError } = require("../utils/generationErrors");
 const { mergeGitRepository } = require("../utils/sshKey");
+const { validateServicesForGeneration } = require("../validators/serviceSchema");
 
 // Validate required environment variable
 if (!process.env.INJECTO_SERVICE_URL) {
@@ -27,6 +28,7 @@ class EnvironmentService {
         provider: data.provider || data.type || "aws",
         region: data.region || null,
         location: data.location || data.region || null,
+        domain: data.domain || null,
         status: "pending",
         services: data.services || {},
         terraform_backend: data.terraformBackend || null,
@@ -145,6 +147,11 @@ class EnvironmentService {
         provider: data.provider || data.type,
         region: data.region,
         location: data.location || data.region,
+        // Editable on purpose: a customer typically delegates a domain after
+        // trying the product and should not have to recreate the environment to
+        // add one. Omitting the field keeps the current value; sending "" clears
+        // it, which the templates read as "no host-based ingresses".
+        domain: data.domain !== undefined ? data.domain || null : environment.domain,
         services: data.services,
         terraform_backend:
           data.terraformBackend !== undefined
@@ -205,6 +212,25 @@ class EnvironmentService {
 
       // Prepare configuration data for Injecto
       const configData = this.prepareInjectoData(environment);
+
+      // Validate the services payload before handing it to Injecto. A malformed
+      // payload that passes create/update validation (which is structural only)
+      // can still produce silently wrong infrastructure — a missing
+      // conditionally-required field or a non-boolean enabled that
+      // prepareInjectoData's truthy check lets through. Fail loudly here with a
+      // 422 so the user gets an actionable message rather than a broken ZIP.
+      const { valid, errors } = await validateServicesForGeneration(environment.services, {
+        provider: environment.provider,
+      });
+      if (!valid) {
+        const error = new Error(
+          `Service configuration is invalid for generation: ${errors.join("; ")}`,
+        );
+        error.statusCode = 422;
+        error.code = "SERVICE_VALIDATION_FAILED";
+        error.details = errors;
+        throw error;
+      }
 
       logger.info("Calling Injecto service", {
         url: `${injectoUrl}/process-git-download`,
@@ -434,6 +460,11 @@ class EnvironmentService {
       globalPrefix: environment.global_prefix || environment.globalPrefix || "",
       provider: environment.provider,
       region: environment.region || environment.location,
+      // @param domain. Empty is a valid answer, not a missing one: the templates
+      // emit no host-based ingress for it. Leaving the key out instead would
+      // make it an unresolved @param, and an unresolved @param ships the
+      // template's own default — which is how our domain reached customers.
+      domain: environment.domain || "",
       terraformBackend,
       backend: environment.terraform_backend?.enabled || false,
       // Only the two fields templates actually consume (@param gitRepository.url
@@ -444,6 +475,12 @@ class EnvironmentService {
         ? {
             url: environment.git_repository.url || "",
             branch: environment.git_repository.branch || "HEAD",
+            // The generated workflow filters `on.push.branches`, which YAML needs
+            // as a sequence. Injecto renders a list as JSON, so the array form
+            // substitutes into `branches: [...]` while the scalar above keeps
+            // serving `targetRevision`. Without it the pipeline stayed pinned to
+            // main and never fired for any other branch (OP-235).
+            branches: [environment.git_repository.branch || "HEAD"],
           }
         : null,
       // Map user-supplied git repo URL into the path Injecto uses for @param argocd.git_repo_url
