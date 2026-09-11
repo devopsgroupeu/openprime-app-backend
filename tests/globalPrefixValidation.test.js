@@ -23,9 +23,12 @@ const prefixValidator = validateEnvironment.find(
   (v) => v.builder?.fields?.[0] === "globalPrefix" || String(v).includes("globalPrefix"),
 );
 
-// express-validator chains expose their result through run(); build a minimal req.
-const runValidators = async (body) => {
-  const req = { body };
+// express-validator chains expose their result through run(); build a minimal
+// req. params/user simulate a PUT /:id request (authenticateToken has
+// already set req.user by the time validateEnvironment runs); omitted, this
+// simulates POST / (create).
+const runValidators = async (body, { params, user } = {}) => {
+  const req = { body, params: params || {}, user };
   for (const validator of validateEnvironment) {
     await validator.run(req);
   }
@@ -93,6 +96,10 @@ describe("globalPrefix still rejects unsafe values", () => {
     ["1app-", "leading digit"],
     ["app--test-", "double hyphen"],
     ["app_test-", "underscore"],
+    // openprime-infra-templates/_variables.tf requires the trailing hyphen
+    // too (elasticache.tf's naming relies on it as its own separator) - this
+    // must reject on create, not merely fail terraform validate later.
+    ["app", "no trailing hyphen"],
   ])("rejects %p (%s)", async (prefix) => {
     const result = await runValidators({
       name: "demo",
@@ -101,5 +108,101 @@ describe("globalPrefix still rejects unsafe values", () => {
     });
     const prefixErrors = result.array().filter((e) => e.path === "globalPrefix");
     expect(prefixErrors.length).toBeGreaterThan(0);
+  });
+
+  // The naive ^[a-z](-?[a-z0-9]+)*-?$ nests a `+` inside a `*`: measured
+  // against POST /api/environments, a 32-character run of valid characters
+  // with nothing at the end to match held the process for ~4.1s and doubled
+  // every 2 characters - hours at the 63-character bound this rule allows,
+  // and Node is single-threaded, so one request stalls everyone. The
+  // replacement regex is exhaustively equivalent (299,592 strings up to
+  // length 6 checked, 0 disagreements) but linear.
+  it("rejects a pathological run of valid characters without catastrophic backtracking", async () => {
+    const pathological = `${"a".repeat(30)}!`; // trailing "!" forces a full failed match
+
+    const start = Date.now();
+    const result = await runValidators({
+      name: "demo",
+      provider: "aws",
+      globalPrefix: pathological,
+    });
+    const elapsedMs = Date.now() - start;
+
+    const prefixErrors = result.array().filter((e) => e.path === "globalPrefix");
+    expect(prefixErrors.length).toBeGreaterThan(0);
+    expect(elapsedMs).toBeLessThan(500);
+  }, 3000);
+});
+
+describe("globalPrefix on update: an existing value keeps its own shape", () => {
+  // OP-231 tightened the charset. Without this, every future update to an
+  // environment saved under the looser pre-OP-231 rule (uppercase, a
+  // leading digit, a double hyphen - all legal before) would 400 here on
+  // this field alone, even for an update that doesn't touch globalPrefix at
+  // all: the wizard posts the whole environment back, and this validator
+  // runs before updateEnvironmentByUser's own "unchanged is fine, changed is
+  // rejected" immutability check ever gets a chance to run.
+  const { Environment } = require("../src/models");
+  let findOneSpy;
+
+  beforeEach(() => {
+    findOneSpy = jest.spyOn(Environment, "findOne").mockResolvedValue(null);
+  });
+
+  afterEach(() => {
+    findOneSpy.mockRestore();
+  });
+
+  it("accepts an unchanged prefix that predates the tightened charset", async () => {
+    findOneSpy.mockResolvedValue({ global_prefix: "1App--legacy-" });
+
+    const result = await runValidators(
+      { name: "demo", provider: "aws", globalPrefix: "1App--legacy-" },
+      { params: { id: "env-1" }, user: { id: "user-1" } },
+    );
+
+    expect(findOneSpy).toHaveBeenCalledWith({
+      where: { id: "env-1", user_id: "user-1" },
+      attributes: ["global_prefix"],
+    });
+    const prefixErrors = result.array().filter((e) => e.path === "globalPrefix");
+    expect(prefixErrors).toEqual([]);
+  });
+
+  it("still rejects a genuinely new value that doesn't match the current charset", async () => {
+    findOneSpy.mockResolvedValue({ global_prefix: "op-" });
+
+    const result = await runValidators(
+      { name: "demo", provider: "aws", globalPrefix: "1app-" },
+      { params: { id: "env-1" }, user: { id: "user-1" } },
+    );
+
+    const prefixErrors = result.array().filter((e) => e.path === "globalPrefix");
+    expect(prefixErrors.length).toBeGreaterThan(0);
+  });
+
+  it("still validates normally on create (no params.id to look up)", async () => {
+    const result = await runValidators(
+      { name: "demo", provider: "aws", globalPrefix: "1app-" },
+      { user: { id: "user-1" } },
+    );
+
+    expect(findOneSpy).not.toHaveBeenCalled();
+    const prefixErrors = result.array().filter((e) => e.path === "globalPrefix");
+    expect(prefixErrors.length).toBeGreaterThan(0);
+  });
+
+  // Performance: the regex is checked first, so a PUT that already matches
+  // the current charset - every environment created after OP-231, not just
+  // ones untouched by this update - never pays for the DB round trip at all.
+  it("skips the DB lookup entirely when the submitted value already matches the current charset", async () => {
+    const result = await runValidators(
+      { name: "demo", provider: "aws", globalPrefix: "op-" },
+      { params: { id: "env-1" }, user: { id: "user-1" } },
+    );
+
+    expect(findOneSpy).not.toHaveBeenCalled();
+    const prefixErrors = result.array().filter((e) => e.path === "globalPrefix");
+    expect(prefixErrors).toEqual([]);
   });
 });
