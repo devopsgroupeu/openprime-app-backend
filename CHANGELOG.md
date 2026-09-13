@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.18.1](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.18.0...v1.18.1) (2026-09-13)
+
+### 🐛 Bug Fixes
+
+* **env-validator:** require a letter-led global prefix with no double hyphen ([#30](https://github.com/devopsgroupeu/openprime-app-backend/issues/30)) ([b2bfff9](https://github.com/devopsgroupeu/openprime-app-backend/commit/b2bfff9d13b8dd74852d421b9c4b717b91f2c6f9))
+
 ## [1.18.0](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.17.0...v1.18.0) (2026-09-09)
 
 ### 🚀 Features
