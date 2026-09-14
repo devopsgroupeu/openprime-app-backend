@@ -62,6 +62,20 @@ router.delete(
   cloudCredentialController.deleteCredential,
 );
 
+router.post(
+  "/:credentialId/test",
+  authenticateToken,
+  [param("credentialId").isUUID().withMessage("Invalid credential ID")],
+  cloudCredentialController.testCredential,
+);
+
+router.get(
+  "/:credentialId/usage",
+  authenticateToken,
+  [param("credentialId").isUUID().withMessage("Invalid credential ID")],
+  cloudCredentialController.getCredentialUsage,
+);
+
 router.put(
   "/:credentialId/default",
   authenticateToken,
