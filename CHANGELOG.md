@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.18.2](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.18.1...v1.18.2) (2026-09-14)
+
+### 🐛 Bug Fixes
+
+* **validation:** accept helmCharts and fields the catalog types two ways ([#36](https://github.com/devopsgroupeu/openprime-app-backend/issues/36)) ([003e0c0](https://github.com/devopsgroupeu/openprime-app-backend/commit/003e0c07fe98348219274939873f327455a65733))
+
 ## [1.18.1](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.18.0...v1.18.1) (2026-09-13)
 
 ### 🐛 Bug Fixes
