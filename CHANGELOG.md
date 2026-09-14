@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.19.0](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.18.2...v1.19.0) (2026-09-14)
+
+### 🚀 Features
+
+* truthful failure handling — STS credential validation, test endpoint, delete warning, requestId in errors ([#32](https://github.com/devopsgroupeu/openprime-app-backend/issues/32)) ([8f1e219](https://github.com/devopsgroupeu/openprime-app-backend/commit/8f1e2196f27b5deb31527b267f494a70d914718e))
+
 ## [1.18.2](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.18.1...v1.18.2) (2026-09-14)
 
 ### 🐛 Bug Fixes
