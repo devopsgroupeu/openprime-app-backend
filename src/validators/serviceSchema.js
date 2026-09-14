@@ -35,6 +35,22 @@ const FIELD_TYPES = {
 };
 
 /**
+ * Keys that live under a service but are not catalog fields.
+ *
+ * `helmCharts` is a nested structure (`services.eks.helmCharts.<chart>.enabled`)
+ * that the catalog deliberately does not describe — Injecto's extractor only
+ * synthesizes toggles for *direct* children of a service, and says so:
+ * helmCharts "belong to helmChartsConfig, which OP-208 leaves alone and OP-200
+ * owns". The frontend writes it unconditionally for every Kubernetes service
+ * (environmentsConfig.js `backfillServices`), so treating it as a field made
+ * every EKS environment fail generation.
+ *
+ * Listed by name rather than skipping any unrecognised object, so a typo in a
+ * real field name is still rejected instead of being silently accepted.
+ */
+const STRUCTURAL_KEYS = new Set(["helmCharts"]);
+
+/**
  * Conditional requirements the catalog cannot express. Each entry makes the
  * field required when the sibling field equals `value`.
  */
@@ -46,6 +62,27 @@ const REQUIRED_WHEN = {
     loggingBucket: { field: "enableLogging", value: true },
   },
 };
+
+/**
+ * Map a catalog field's `valueType` (the data type: string/number/boolean/list)
+ * onto a FIELD_TYPES constant. Injecto's extractor emits `valueType` on every
+ * field — declared on the decorator, or inferred from the Terraform literal.
+ */
+function valueTypeFor(field) {
+  switch (field.valueType) {
+    case "boolean":
+      return FIELD_TYPES.TOGGLE;
+    case "number":
+      return FIELD_TYPES.NUMBER;
+    case "array":
+    case "list":
+      return FIELD_TYPES.ARRAY;
+    case "string":
+      return FIELD_TYPES.TEXT;
+    default:
+      return undefined;
+  }
+}
 
 /**
  * Map a catalog field descriptor to a control type for checkFieldType.
@@ -60,19 +97,7 @@ function controlTypeFor(field) {
   if (typeof field.type === "string" && field.type) {
     return field.type;
   }
-  switch (field.valueType) {
-    case "boolean":
-      return FIELD_TYPES.TOGGLE;
-    case "number":
-      return FIELD_TYPES.NUMBER;
-    case "array":
-    case "list":
-      return FIELD_TYPES.ARRAY;
-    case "string":
-      return FIELD_TYPES.TEXT;
-    default:
-      return undefined;
-  }
+  return valueTypeFor(field);
 }
 
 /**
@@ -106,6 +131,12 @@ function transformCatalogDoc(doc) {
 
     for (const [fieldName, field] of Object.entries(catalogFields)) {
       const descriptor = { type: controlTypeFor(field) };
+      // A field the catalog describes twice is accepted under either
+      // description — see checkFieldType.
+      const valueType = valueTypeFor(field);
+      if (valueType !== undefined && valueType !== descriptor.type) {
+        descriptor.valueType = valueType;
+      }
       const min = coerceBound(field.min);
       const max = coerceBound(field.max);
       if (min !== undefined) descriptor.min = min;
@@ -285,6 +316,12 @@ async function validateServices(services, { provider } = {}) {
     const serviceFields = schema[serviceName].fields;
 
     for (const [fieldName, fieldValue] of Object.entries(serviceConfig)) {
+      // Structure the catalog does not describe and never will — see
+      // STRUCTURAL_KEYS. Passed through to Injecto untouched.
+      if (STRUCTURAL_KEYS.has(fieldName)) {
+        continue;
+      }
+
       if (!(fieldName in serviceFields)) {
         errors.push(`Unknown field "${fieldName}" in service "${serviceName}"`);
         continue;
@@ -299,7 +336,27 @@ async function validateServices(services, { provider } = {}) {
 
       const fieldSchema = serviceFields[fieldName];
 
-      if (!checkFieldType(fieldValue, fieldSchema.type)) {
+      // The catalog describes a field two ways — `type` is the control that
+      // edits it, `valueType` is what the value is — and for one field today
+      // they disagree on purpose: `opensearch.allowExplicitIndex` is a
+      // Terraform string edited by a toggle, because AWS OpenSearch
+      // `advanced_options` is a map of strings.
+      //
+      // Accept the value under either description rather than picking a
+      // winner. Picking `valueType` would reject every numeric dropdown: the
+      // wizard stores what the DOM hands it (DynamicFieldRenderer passes
+      // `e.target.value` through uncoerced), so `vpc.azCount` is the string
+      // "2" against a catalog that infers `valueType: number`. Picking `type`
+      // is what rejected allowExplicitIndex. Neither attribute alone
+      // describes what is actually stored.
+      //
+      // This stays a structural check — it catches objects, arrays and
+      // booleans arriving where a scalar belongs. Injecto validates the
+      // values themselves at generation.
+      if (
+        !checkFieldType(fieldValue, fieldSchema.type) &&
+        !(fieldSchema.valueType && checkFieldType(fieldValue, fieldSchema.valueType))
+      ) {
         errors.push(
           `Field "${serviceName}.${fieldName}" must be of type ${fieldSchema.type}, got ${typeof fieldValue}`,
         );
