@@ -216,6 +216,23 @@ const catalogDoc = {
         functionNames: field("functionNames", "array", "list", { defaultValue: [] }),
       },
     },
+    // The one service in the real catalog where `type` and `valueType`
+    // disagree. Copied verbatim from the decorator in
+    // openprime-infra-templates terraform.auto.tfvars:
+    //   @param services.opensearch.allowExplicitIndex | valueType=string |
+    //   default=true | type=toggle
+    // AWS OpenSearch `advanced_options` is a map of strings, so the value is
+    // the string "true" while a checkbox is still the right control.
+    opensearch: {
+      key: "opensearch",
+      displayName: "OpenSearch",
+      fields: {
+        enabled: field("enabled", "toggle", "boolean", { defaultValue: false }),
+        allowExplicitIndex: field("allowExplicitIndex", "toggle", "string", {
+          defaultValue: "true",
+        }),
+      },
+    },
   },
 };
 

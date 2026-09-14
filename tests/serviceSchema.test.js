@@ -460,6 +460,91 @@ describe("validateServicesForGeneration — invalid inputs", () => {
   });
 });
 
+// The shape the frontend actually stores and the generation path actually
+// reads — not a payload assembled from the catalog. Every Kubernetes service
+// carries `helmCharts`, written unconditionally by backfillServices() in
+// openprime-app/src/config/environmentsConfig.js, and the catalog does not
+// describe it.
+//
+// This is the fixture the original review of this validator never wrote: the
+// catalog was driven against its own field list, so a key that is structure
+// rather than a field could not show up. In production it rejected every
+// environment with EKS enabled.
+function storedEnvironmentServices() {
+  return {
+    vpc: { enabled: true, cidr: "10.0.0.0/16", azCount: 2 },
+    eks: {
+      enabled: true,
+      kubernetesVersion: "1.34",
+      helmCharts: {
+        certManager: { enabled: true },
+        prometheusStack: { enabled: false },
+        ingressNginx: { enabled: true, values: "controller:\n  replicaCount: 2\n" },
+      },
+    },
+  };
+}
+
+describe("keys that are structure rather than catalog fields", () => {
+  it("accepts a stored environment carrying services.eks.helmCharts", async () => {
+    const result = await validateServices(storedEnvironmentServices(), AWS);
+    expect(result.errors).toEqual([]);
+    expect(result.valid).toBe(true);
+  });
+
+  it("accepts the same payload on the generation path", async () => {
+    const result = await validateServicesForGeneration(storedEnvironmentServices(), AWS);
+    expect(result.errors).toEqual([]);
+    expect(result.valid).toBe(true);
+  });
+
+  it("does not open a hole — an unknown field is still rejected", async () => {
+    const services = storedEnvironmentServices();
+    services.eks.helmChartz = { certManager: { enabled: true } };
+    const result = await validateServices(services, AWS);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain('Unknown field "helmChartz" in service "eks"');
+  });
+});
+
+describe("a field the catalog describes twice is accepted under either description", () => {
+  // opensearch.allowExplicitIndex: type=toggle, valueType=string.
+  it("accepts the string the templates actually ask for", async () => {
+    const services = { opensearch: { enabled: true, allowExplicitIndex: "true" } };
+    const result = await validateServicesForGeneration(services, AWS);
+    expect(result.errors).toEqual([]);
+    expect(result.valid).toBe(true);
+  });
+
+  it("accepts the boolean its control would produce", async () => {
+    const services = { opensearch: { enabled: true, allowExplicitIndex: true } };
+    const result = await validateServices(services, AWS);
+    expect(result.errors).toEqual([]);
+    expect(result.valid).toBe(true);
+  });
+
+  it("still rejects a value neither description allows", async () => {
+    const services = { opensearch: { enabled: true, allowExplicitIndex: { on: true } } };
+    const result = await validateServices(services, AWS);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain(
+      'Field "opensearch.allowExplicitIndex" must be of type toggle, got object',
+    );
+  });
+
+  // The regression the first attempt at this fix would have caused: the
+  // wizard stores `<select>` values uncoerced, so a numeric dropdown holds a
+  // string. Preferring valueType would have rejected every VPC.
+  it("accepts a numeric dropdown stored as the string the DOM produced", async () => {
+    const result = await validateServices(
+      { vpc: { enabled: true, cidr: "10.0.0.0/16", azCount: "2" } },
+      AWS,
+    );
+    expect(result.errors).toEqual([]);
+    expect(result.valid).toBe(true);
+  });
+});
+
 describe("catalog parity — the schema cannot drift from the catalog", () => {
   it("carries every catalog service and field with matching type and bounds", async () => {
     const schema = await getServiceSchema();
