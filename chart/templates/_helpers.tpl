@@ -90,6 +90,17 @@ migration Job so both always run against the same configuration/secret.
 {{- end }}
 
 {{/*
+Metrics listener settings, shared by the API and worker Deployments so the port
+the app binds always matches the declared container port.
+*/}}
+{{- define "openprime-app-backend.metricsEnv" -}}
+- name: METRICS_ENABLED
+  value: {{ .Values.metrics.enabled | quote }}
+- name: METRICS_PORT
+  value: {{ .Values.metrics.port | quote }}
+{{- end }}
+
+{{/*
 Container env vars for the dedicated worker Deployment: the shared app env
 (plain values + secret refs) plus worker-specific overrides from
 .Values.worker.env. Later entries win in Kubernetes, so worker.env can override
@@ -103,4 +114,18 @@ the shared env.
 - name: {{ $key }}
   value: {{ $value | quote }}
 {{- end }}
+{{- end }}
+
+{{/*
+NetworkPolicy ingress rule letting Prometheus scrape the metrics port. Rendered
+by the chart rather than listed in networkPolicy.ingress, because a values
+override of that list replaces it wholesale and would silently drop the rule.
+*/}}
+{{- define "openprime-app-backend.metricsScrapeRule" -}}
+- from:
+    - namespaceSelector:
+        {{- toYaml .Values.metrics.scrapeNamespaceSelector | nindent 8 }}
+  ports:
+    - protocol: TCP
+      port: {{ .Values.metrics.port }}
 {{- end }}

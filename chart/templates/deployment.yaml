@@ -1,3 +1,6 @@
+{{- if and .Values.metrics.enabled (eq (int .Values.metrics.port) (int .Values.service.targetPort)) }}
+{{- fail "metrics.port must differ from service.targetPort: the metrics listener and the API cannot share a port" }}
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -48,6 +51,11 @@ spec:
             - name: http
               containerPort: {{ .Values.service.targetPort }}
               protocol: TCP
+            {{- if .Values.metrics.enabled }}
+            - name: metrics
+              containerPort: {{ .Values.metrics.port }}
+              protocol: TCP
+            {{- end }}
           {{- if .Values.healthCheck.enabled }}
           livenessProbe:
             {{- toYaml .Values.healthCheck.livenessProbe | nindent 12 }}
@@ -56,6 +64,7 @@ spec:
           {{- end }}
           env:
             {{- include "openprime-app-backend.env" . | trimPrefix "\n" | nindent 12 }}
+            {{- include "openprime-app-backend.metricsEnv" . | nindent 12 }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:

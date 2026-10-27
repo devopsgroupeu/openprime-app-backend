@@ -1,0 +1,23 @@
+{{- if .Values.grafanaDashboards.enabled }}
+{{- range $path, $_ := .Files.Glob "dashboards/*.json" }}
+---
+# One ConfigMap per dashboard: the Grafana sidecar (kube-prometheus-stack) loads
+# every ConfigMap carrying the label below, from any namespace, and reloads it
+# on change without restarting Grafana. Separate ConfigMaps keep each object
+# well under the 256 KiB last-applied annotation limit of client-side apply.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "openprime-app-backend.fullname" $ }}-dashboard-{{ base $path | trimSuffix ".json" }}
+  labels:
+    {{- include "openprime-app-backend.labels" $ | nindent 4 }}
+    {{ $.Values.grafanaDashboards.label }}: {{ $.Values.grafanaDashboards.labelValue | quote }}
+  {{- with $.Values.grafanaDashboards.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+data:
+  {{ base $path }}: |-
+    {{- $.Files.Get $path | nindent 4 }}
+{{- end }}
+{{- end }}

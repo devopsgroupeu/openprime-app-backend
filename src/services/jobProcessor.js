@@ -14,6 +14,12 @@ const { randomUUID } = require("crypto");
 const { logger } = require("../utils/logger");
 const jobService = require("./jobService");
 const environmentService = require("./environmentService");
+const {
+  jobsTotal,
+  jobDurationSeconds,
+  jobsInFlight,
+  jobsExpiredTotal,
+} = require("../utils/metrics");
 
 const POLL_INTERVAL_MS = parseInt(process.env.JOB_POLL_INTERVAL_MS || "3000", 10);
 const MAX_CONCURRENT_JOBS = parseInt(process.env.MAX_CONCURRENT_JOBS || "2", 10);
@@ -64,6 +70,14 @@ function isRetryable(error) {
   return false;
 }
 
+// Count a job outcome once it is persisted, so the metric never reports an
+// outcome the jobs table disagrees with.
+function observeJob(job, outcome, startedAt) {
+  const labels = { type: job.type, outcome };
+  jobsTotal.inc(labels);
+  jobDurationSeconds.observe(labels, (Date.now() - startedAt) / 1000);
+}
+
 async function executeJob(job) {
   const startedAt = Date.now();
   try {
@@ -108,6 +122,7 @@ async function executeJob(job) {
     }
 
     await jobService.markSucceeded(job, result);
+    observeJob(job, "succeeded", startedAt);
   } catch (error) {
     logger.error("Job execution failed", { jobId: job.id, type: job.type, error: error.message });
     // A 422 generation failure (OP-214) is the user's problem to act on, not a
@@ -117,10 +132,13 @@ async function executeJob(job) {
       const details = Array.isArray(error.details) ? error.details.join("; ") : "";
       error.message = `${error.message}${error.code ? ` (${error.code})` : ""}${details ? ` ${details}` : ""}`;
       await jobService.markFailed(job, error);
+      observeJob(job, "failed", startedAt);
     } else if (isRetryable(error) && job.attempts < job.max_attempts) {
       await jobService.markForRetry(job, error);
+      observeJob(job, "retried", startedAt);
     } else {
       await jobService.markFailed(job, error);
+      observeJob(job, "failed", startedAt);
     }
   }
 }
@@ -147,9 +165,11 @@ async function workerLoop() {
 
       runningCount.total += 1;
       runningCount[job.type] += 1;
+      jobsInFlight.inc({ type: job.type });
       const promise = executeJob(job).finally(() => {
         runningCount.total -= 1;
         runningCount[job.type] -= 1;
+        jobsInFlight.dec({ type: job.type });
         inFlight.delete(promise);
       });
       inFlight.add(promise);
@@ -162,6 +182,15 @@ async function workerLoop() {
 
 async function startWorker() {
   if (loopPromise) return;
+  // Create every job series at zero, so the first job after a restart is
+  // visible to increase()/rate() and a success-rate query never divides by a
+  // series that does not exist yet.
+  for (const type of ["generate", "push"]) {
+    jobsInFlight.set({ type }, 0);
+    for (const outcome of ["succeeded", "retried", "failed"]) {
+      jobsTotal.inc({ type, outcome }, 0);
+    }
+  }
   // Startup recovery sweep: reclaim jobs a prior (now-dead) worker left
   // running (SIGKILL/OOM/node failure never runs stopWorker). Runs once —
   // startWorker is idempotent, so this only executes on the first call. Safe
@@ -186,6 +215,7 @@ async function startWorker() {
     try {
       const failed = await jobService.failExpiredJobs();
       if (failed > 0) {
+        jobsExpiredTotal.inc(failed);
         logger.warn("Periodic sweep failed expired jobs", { count: failed });
       }
       // Also clean up old terminal jobs to prevent unbounded table growth.
@@ -212,4 +242,4 @@ async function stopWorker() {
   logger.info("Job worker stopped", { requeued });
 }
 
-module.exports = { startWorker, stopWorker, isRetryable };
+module.exports = { startWorker, stopWorker, isRetryable, executeJob };

@@ -1,0 +1,26 @@
+{{- if and .Values.worker.enabled .Values.metrics.enabled }}
+# Metrics-only Service for the worker. The worker is deliberately kept out of
+# the API Service (it serves no API traffic), so it needs its own Service for
+# the ServiceMonitor to discover it. It exposes the metrics port and nothing
+# else, and no ingress routes to it.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "openprime-app-backend.fullname" . }}-worker
+  labels:
+    helm.sh/chart: {{ include "openprime-app-backend.chart" . }}
+    app.kubernetes.io/name: {{ include "openprime-app-backend.name" . }}-worker
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: worker
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.metrics.port }}
+      targetPort: metrics
+      protocol: TCP
+      name: metrics
+  selector:
+    app.kubernetes.io/name: {{ include "openprime-app-backend.name" . }}-worker
+    app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}

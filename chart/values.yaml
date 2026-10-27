@@ -66,6 +66,44 @@ service:
   port: 3001
   targetPort: 3001
 
+# Prometheus metrics, served by a second listener on a dedicated port in both
+# the API and the worker pods. Kept off the API port on purpose: the endpoint is
+# unauthenticated and the API port sits behind the public ingress, while this
+# port is never routed by it. Scraped in-cluster via the ServiceMonitor below.
+metrics:
+  enabled: true
+  port: 9090
+  # Namespaces allowed to scrape the metrics port when networkPolicy.enabled is
+  # set. The chart adds this rule itself, so overriding networkPolicy.ingress
+  # never drops it. Point it at wherever Prometheus runs: "monitoring" for this
+  # cluster's kube-prometheus-stack; e.g. kube-system for Azure Monitor managed
+  # Prometheus, gmp-system for GKE Managed Prometheus.
+  scrapeNamespaceSelector:
+    matchLabels:
+      kubernetes.io/metadata.name: monitoring
+
+# ServiceMonitor for the Prometheus Operator, covering the API Service and the
+# worker's metrics-only Service. Rendered only on a cluster that serves
+# monitoring.coreos.com/v1 (the Prometheus Operator CRDs), so installing the
+# chart on a cluster without them does not fail. The cluster's Prometheus
+# discovers ServiceMonitors in every namespace with no label selector
+# (serviceMonitorSelectorNilUsesHelmValues: false).
+serviceMonitor:
+  enabled: true
+  interval: 30s
+  path: /metrics
+
+# OpenPrime Grafana dashboards (chart/dashboards/*.json), shipped as ConfigMaps
+# that the Grafana sidecar of kube-prometheus-stack picks up from any namespace
+# by label (sidecar.dashboards.searchNamespace: ALL is that chart's default).
+# They query the metrics of all three services, so they live with the API that
+# defines most of them. Annotations can carry e.g. a sidecar folder annotation.
+grafanaDashboards:
+  enabled: true
+  label: grafana_dashboard
+  labelValue: "1"
+  annotations: {}
+
 ingress:
   enabled: false
   className: ""

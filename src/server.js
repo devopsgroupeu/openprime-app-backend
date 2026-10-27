@@ -8,7 +8,9 @@ require("dotenv").config();
 
 const { errorHandler } = require("./middleware/errorHandler");
 const { requestLogger } = require("./middleware/requestLogger");
+const { httpMetrics } = require("./middleware/httpMetrics");
 const { logger } = require("./utils/logger");
+const { startMetricsServer } = require("./utils/metrics");
 const routes = require("./routes");
 const { sequelize, initializeDatabase, closeConnection } = require("./config/database");
 const { migrateOnStartup } = require("./config/umzug");
@@ -51,6 +53,11 @@ const PORT = process.env.PORT;
 // Trust proxy when running behind ingress/load balancer
 // Use 1 to trust only the immediate proxy (more secure than true)
 app.set("trust proxy", 1);
+
+// RED metrics. First in the chain so rate-limited requests and CORS preflights
+// are counted too. The metrics themselves are served on a separate port by
+// startMetricsServer(), never by this app (see src/utils/metrics.js).
+app.use(httpMetrics);
 
 // Security middleware
 app.use(helmet());
@@ -130,6 +137,9 @@ async function startServer() {
 
     // Apply (dev) or validate (prod) schema migrations before serving traffic
     await migrateOnStartup();
+
+    // Prometheus metrics on their own port, in-cluster only
+    startMetricsServer({ sequelize });
 
     // Start the server
     const server = app.listen(PORT, () => {

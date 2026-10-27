@@ -16,8 +16,9 @@
 require("dotenv").config();
 
 const { logger } = require("./utils/logger");
-const { initializeDatabase, closeConnection } = require("./config/database");
+const { sequelize, initializeDatabase, closeConnection } = require("./config/database");
 const { startWorker, stopWorker } = require("./services/jobProcessor");
+const { startMetricsServer } = require("./utils/metrics");
 
 // Initialize database and start the worker
 async function startWorkerProcess() {
@@ -29,6 +30,11 @@ async function startWorkerProcess() {
     // SSH keys at push time, which the shared code handles.
     await initializeDatabase();
     logger.info("Database initialized successfully");
+
+    // Generate/push metrics live in this process, so it needs its own metrics
+    // listener. It serves only /metrics on the metrics port; the "no HTTP
+    // server" rule above is about API traffic.
+    startMetricsServer({ sequelize });
 
     // Start the async job worker (generate/push). No HTTP server and no
     // migrations — this process exists to drain the DB-backed queue.
