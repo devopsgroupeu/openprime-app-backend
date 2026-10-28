@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.21.0](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.20.0...v1.21.0) (2026-10-28)
+
+### 🚀 Features
+
+* **metrics:** add prometheus metrics and grafana dashboards (OP-176) ([#38](https://github.com/devopsgroupeu/openprime-app-backend/issues/38)) ([88020f6](https://github.com/devopsgroupeu/openprime-app-backend/commit/88020f607e5198a069f084ff7326c09a4bcda6c6))
+
 ## [1.20.0](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.19.0...v1.20.0) (2026-10-28)
 
 ### 🚀 Features
