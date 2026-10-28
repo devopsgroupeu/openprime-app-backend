@@ -24,6 +24,9 @@ spec:
     {{- range .Values.networkPolicy.ingress }}
     - {{- toYaml . | nindent 6 }}
     {{- end }}
+    {{- if .Values.metrics.enabled }}
+    {{- include "openprime-app-backend.metricsScrapeRule" . | nindent 4 }}
+    {{- end }}
   egress:
     {{- range .Values.networkPolicy.egress }}
     - {{- toYaml . | nindent 6 }}

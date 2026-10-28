@@ -51,10 +51,18 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           # Override the image default (src/server.js): this pod runs ONLY the
-          # job worker, no HTTP server, so there is no port and no HTTP probe.
+          # job worker, no API server, so there is no http port and no HTTP
+          # probe. The metrics port is the one listener it has.
           command: ["node", "src/worker.js"]
+          {{- if .Values.metrics.enabled }}
+          ports:
+            - name: metrics
+              containerPort: {{ .Values.metrics.port }}
+              protocol: TCP
+          {{- end }}
           env:
             {{- include "openprime-app-backend.workerEnv" . | trimPrefix "\n" | nindent 12 }}
+            {{- include "openprime-app-backend.metricsEnv" . | nindent 12 }}
           resources:
             {{- toYaml .Values.worker.resources | nindent 12 }}
           volumeMounts:

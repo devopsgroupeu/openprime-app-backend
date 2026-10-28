@@ -135,6 +135,50 @@ Secrets are AES-256-GCM encrypted at rest and redacted from every response.
 > `catalog.js`, `cloudCredentials.js`, `environments.js`, `jobs.js` and `users.js`.
 > Deploying is the customer's own generated pipeline's job, not this API's.
 
+## Metrics
+
+- `GET /metrics` - Prometheus metrics, on the **separate metrics port** (`METRICS_PORT`,
+  default `9090`), never on the API port. The endpoint is unauthenticated, so it is kept off
+  the port the public ingress routes to; Prometheus scrapes it in-cluster through the chart's
+  ServiceMonitor. The API pods and the job worker both serve it. Set `METRICS_ENABLED=false`
+  to not start the listener.
+- Chart behaviour: the ServiceMonitor is only rendered on clusters that serve
+  `monitoring.coreos.com/v1` (the Prometheus Operator CRDs); with `networkPolicy.enabled` the
+  chart adds a rule letting `metrics.scrapeNamespaceSelector` (default `monitoring`) reach the
+  metrics port; and if `service.type` is not `ClusterIP` the metrics port moves to a separate
+  ClusterIP `-metrics` Service so it is never exposed outside the cluster.
+
+| Metric                                                                                                     | What it measures                                                                       |
+| ---------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `http_requests_total`, `http_request_duration_seconds`                                                     | Requests by `method`, `route` (the matched pattern) and `status_code`; probes excluded |
+| `openprime_jobs_total`, `openprime_job_duration_seconds`                                                   | Generate/push executions by `type` and `outcome` (`succeeded`, `retried`, `failed`)    |
+| `openprime_jobs_in_flight`, `openprime_jobs_expired_total`                                                 | Jobs executing now; queued jobs the deadline sweep failed                              |
+| `openprime_db_pool_connections`, `openprime_db_pool_max_connections`, `openprime_db_pool_pending_acquires` | Sequelize pool usage and saturation                                                    |
+| `openprime_bedrock_requests_total`, `openprime_bedrock_request_duration_seconds`                           | Bedrock calls by `operation` and `outcome` (`success`, `throttled`, `error`)           |
+| `openprime_bedrock_throttles_total`                                                                        | Every Bedrock `ThrottlingException`, including retried ones                            |
+
+Default Node.js process metrics (CPU, memory, event loop lag, GC) are included. The HTTP metric
+names and labels match Injecto and StateCraft, so one query works across all three services.
+
+### Grafana dashboards
+
+The chart ships three dashboards in `chart/dashboards/`, deployed as ConfigMaps that the Grafana
+sidecar of kube-prometheus-stack loads by label (`grafanaDashboards.enabled`, on by default):
+
+- **OpenPrime / Overview** - rate, 5xx ratio and p95 latency for the API, Injecto and
+  StateCraft; users & activity (new and active users, environments created/updated/deleted,
+  credentials added, generate/push requests), counted from the backend's logs in Loki;
+  restarts, replicas and error logs
+- **OpenPrime / Backend API** - per-route table, latency percentiles, DB pool saturation,
+  Node.js runtime, HPA headroom and memory against limit
+- **OpenPrime / Jobs & AI** - generate/push outcomes and durations, jobs in flight and expired,
+  Bedrock calls, latency and throttles
+
+Edit a dashboard in Grafana, export it as JSON and replace the file; the sidecar reloads it
+without restarting Grafana. The queries rely on the `service`, `endpoint`, `pod` and `container`
+labels the Prometheus Operator adds to scraped series, and on kube-state-metrics; on a managed
+Prometheus that labels targets differently (e.g. GKE Managed Prometheus) they need adapting.
+
 ## Project Structure
 
 ```
@@ -169,9 +213,11 @@ openprime-backend/
 │   ├── validators/            # Input validation
 │   │   └── environmentValidator.js
 │   ├── middleware/            # Custom middleware
-│   │   └── errorHandler.js
+│   │   ├── errorHandler.js
+│   │   └── httpMetrics.js     # RED metrics by route pattern
 │   └── utils/                 # Utilities
-│       └── logger.js
+│       ├── logger.js
+│       └── metrics.js         # Prometheus registry + metrics-port listener
 ├── uploads/                   # File uploads directory
 ├── logs/                      # Application logs
 ├── tests/                     # Test files
