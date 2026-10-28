@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.20.0](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.19.0...v1.20.0) (2026-10-28)
+
+### 🚀 Features
+
+* **ai:** tell users Azure, GCP and on-prem are on the roadmap ([#37](https://github.com/devopsgroupeu/openprime-app-backend/issues/37)) ([6446153](https://github.com/devopsgroupeu/openprime-app-backend/commit/6446153370b418a2e8ad4d608432bb0786ab37f9))
+
 ## [1.19.0](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.18.2...v1.19.0) (2026-09-14)
 
 ### 🚀 Features
