@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.21.4](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.21.3...v1.21.4) (2026-10-29)
+
+### 🐛 Bug Fixes
+
+* **auth:** refuse to start without a client allow-list (OP-260) ([#42](https://github.com/devopsgroupeu/openprime-app-backend/issues/42)) ([f275a82](https://github.com/devopsgroupeu/openprime-app-backend/commit/f275a824c9f8a5a000a9dc512f37183bdf0c48b8))
+
 ## [1.21.3](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.21.2...v1.21.3) (2026-10-29)
 
 ### 🐛 Bug Fixes
