@@ -73,6 +73,8 @@ npm test
 Everything below is mounted under `/api` and requires a Keycloak JWT, except
 `GET /health`, which is served on the server root.
 
+Every response carries an `X-Request-ID`. A client may send its own (letters, digits and `-`, at most 64 characters); anything else is replaced with a generated id. An unexpected error answers `{ "error": "Internal Server Error", "requestId": ... }` and the detail is logged under that id; a 4xx keeps its message.
+
 ### Environments
 
 - `GET /api/environments` - List the caller's environments
@@ -117,7 +119,7 @@ Secrets are AES-256-GCM encrypted at rest and redacted from every response.
 - `GET /api/users/me` - Current user
 - `PUT /api/users/me` - Update current user
 - `GET /api/users/me/preferences` - Get preferences
-- `PUT /api/users/me/preferences` - Update preferences
+- `PUT /api/users/me/preferences` - Update preferences. Only `theme`, `notifications`, `defaultProvider`, `defaultRegion` and `gitIntegration.platform`/`gitIntegration.orgUrl` are stored; other fields are ignored and an invalid value is a 400
 - `GET /api/users` - List all users (**admin only**)
 
 ### AI
