@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.21.9](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.21.8...v1.21.9) (2026-10-29)
+
+### 🐛 Bug Fixes
+
+* **push:** run git with an explicit minimal environment (OP-258) ([#40](https://github.com/devopsgroupeu/openprime-app-backend/issues/40)) ([f6d3d5c](https://github.com/devopsgroupeu/openprime-app-backend/commit/f6d3d5c96b6a5e77ddd5771d5bedf2ef6a8724fd))
+
 ## [1.21.8](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.21.7...v1.21.8) (2026-10-29)
 
 ### 🐛 Bug Fixes
