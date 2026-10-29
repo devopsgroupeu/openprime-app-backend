@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.21.2](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.21.1...v1.21.2) (2026-10-29)
+
+### 🐛 Bug Fixes
+
+* **validation:** grandfather a legacy global prefix for its own environment (OP-272) ([#39](https://github.com/devopsgroupeu/openprime-app-backend/issues/39)) ([9f0e61b](https://github.com/devopsgroupeu/openprime-app-backend/commit/9f0e61b4d654f1e0068307ce519ec3e64b0d85ef))
+
 ## [1.21.1](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.21.0...v1.21.1) (2026-10-29)
 
 ### 🐛 Bug Fixes
