@@ -32,7 +32,10 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "openprime-app-backend.serviceAccountName" . }}
+      # Not the chart's ServiceAccount: on a first install this pre-install hook
+      # runs before it exists, and the Job could never create its pod. Migrations
+      # need no Kubernetes API access, so no token either.
+      automountServiceAccountToken: false
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
@@ -44,7 +47,7 @@ spec:
           command:
             {{- toYaml .Values.migrations.command | nindent 12 }}
           env:
-            {{- include "openprime-app-backend.env" . | trimPrefix "\n" | nindent 12 }}
+            {{- include "openprime-app-backend.env" (merge (dict "migrateSecret" true) .) | trimPrefix "\n" | nindent 12 }}
           resources:
             {{- toYaml .Values.migrations.resources | nindent 12 }}
 {{- end }}

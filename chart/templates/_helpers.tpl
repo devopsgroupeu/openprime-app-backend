@@ -63,7 +63,9 @@ Create the name of the service account to use
 
 {{/*
 Container env vars (plain values + secret refs), shared by the Deployment and the
-migration Job so both always run against the same configuration/secret.
+migration Job so both always run against the same configuration/secret. The
+migration Job passes migrateSecret, so a chart-managed secret is read from its
+hook-scoped copy (migration-secret.yaml) that exists before the release's own.
 */}}
 {{- define "openprime-app-backend.env" -}}
 {{- range $key, $value := .Values.app.env }}
@@ -83,7 +85,7 @@ migration Job so both always run against the same configuration/secret.
 - name: {{ $key }}
   valueFrom:
     secretKeyRef:
-      name: {{ include "openprime-app-backend.fullname" $ }}-secrets
+      name: {{ include "openprime-app-backend.fullname" $ }}-{{ ternary "migrate-secrets" "secrets" (hasKey $ "migrateSecret") }}
       key: {{ $key }}
 {{- end }}
 {{- end }}
@@ -129,3 +131,4 @@ override of that list replaces it wholesale and would silently drop the rule.
     - protocol: TCP
       port: {{ .Values.metrics.port }}
 {{- end }}
+
