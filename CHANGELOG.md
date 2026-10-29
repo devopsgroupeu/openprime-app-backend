@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.21.11](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.21.10...v1.21.11) (2026-10-29)
+
+### 🐛 Bug Fixes
+
+* check credential ownership, scope idempotency keys per user, harden the push clone (OP-262) ([#43](https://github.com/devopsgroupeu/openprime-app-backend/issues/43)) ([2b88d4c](https://github.com/devopsgroupeu/openprime-app-backend/commit/2b88d4c1a77dc1007a641fa95fdf795102d70402))
+
 ## [1.21.10](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.21.9...v1.21.10) (2026-10-29)
 
 ### 🐛 Bug Fixes
