@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.21.5](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.21.4...v1.21.5) (2026-10-29)
+
+### 🐛 Bug Fixes
+
+* **push:** refuse a repository host that resolves to loopback or metadata (OP-262) ([#44](https://github.com/devopsgroupeu/openprime-app-backend/issues/44)) ([550e022](https://github.com/devopsgroupeu/openprime-app-backend/commit/550e022f90e9bab5ff213cae765f218b4b8e7689))
+
 ## [1.21.4](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.21.3...v1.21.4) (2026-10-29)
 
 ### 🐛 Bug Fixes
