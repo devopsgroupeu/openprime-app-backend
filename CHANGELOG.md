@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.21.1](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.21.0...v1.21.1) (2026-10-29)
+
+### 🐛 Bug Fixes
+
+* **crypto:** require a full 16-byte GCM auth tag on decrypt (OP-271) ([#46](https://github.com/devopsgroupeu/openprime-app-backend/issues/46)) ([33191ea](https://github.com/devopsgroupeu/openprime-app-backend/commit/33191eaed52cded73c68beebfe877abee3ca09ee))
+
 ## [1.21.0](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.20.0...v1.21.0) (2026-10-28)
 
 ### 🚀 Features
