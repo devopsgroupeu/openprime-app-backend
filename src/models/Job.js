@@ -132,7 +132,7 @@ const Job = sequelize.define(
       { fields: ["environment_id"] },
       { fields: ["user_id"] },
       { fields: ["next_attempt_at"] },
-      { fields: ["idempotency_key"], unique: true },
+      { fields: ["user_id", "idempotency_key"], unique: true },
       // Mirrors the DB partial unique indexes (see migration):
       //   jobs_active_env_lock  (type, environment_id) WHERE status IN ('queued','running')
       //   jobs_active_repo_lock (repo_url, branch) WHERE status IN ('queued','running') AND type='push'

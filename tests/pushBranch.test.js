@@ -3,90 +3,52 @@
 // branch was used only as the ArgoCD targetRevision — "pushed successfully"
 // plus a cluster watching a branch that never received the commit.
 //
-// These run against a real bare repository rather than a mocked simple-git,
-// because the whole defect lives in git's behaviour, not in our control flow.
+// These run the real pushInfrastructure against a real bare repository rather
+// than a mocked simple-git, because the whole defect lives in git's behaviour,
+// not in our control flow. They used to replay the clone/checkout sequence by
+// hand; since the clone became shallow and single-branch (OP-262) that replica
+// would no longer be what production runs, so the push goes through a
+// stand-in ssh instead (tests/helpers/fakeSshRemote.js).
+process.env.INJECTO_SERVICE_URL = process.env.INJECTO_SERVICE_URL || "http://localhost:8000";
+
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
-const simpleGit = require("simple-git");
+const AdmZip = require("adm-zip");
+const { createFakeSshRemote } = require("./helpers/fakeSshRemote");
+const environmentService = jest.requireActual("../src/services/environmentService");
 
 jest.setTimeout(30000);
 
 let root;
-let bare;
+let remote;
+let savedPath;
 
-/** A bare repo with one commit on `main`, plus an existing `staging` branch. */
-async function seedRemote() {
-  bare = path.join(root, "remote.git");
-  await simpleGit().init(["--bare", "--initial-branch=main", bare]);
-
-  const seed = path.join(root, "seed");
-  fs.mkdirSync(seed);
-  const g = simpleGit(seed);
-  await g.init(["--initial-branch=main"]);
-  await g.addConfig("user.email", "seed@test");
-  await g.addConfig("user.name", "seed");
-  fs.writeFileSync(path.join(seed, "README.md"), "customer file\n");
-  await g.add(".");
-  await g.commit("initial");
-  await g.addRemote("origin", bare);
-  await g.push(["-u", "origin", "main"]);
-  await g.checkoutLocalBranch("staging");
-  await g.push(["-u", "origin", "staging"]);
-}
-
-/**
- * The exact sequence pushInfrastructure performs, against a real clone.
- * Kept in step with environmentService.pushInfrastructure deliberately: the
- * point is to hold git's actual behaviour, which a mock cannot.
- */
+/** Push a generated tree of `files` to `targetBranch` through the real service. */
 async function pushGenerated(targetBranch, files) {
-  const work = fs.mkdtempSync(path.join(root, "work-"));
-  const git = simpleGit();
-  await git.clone(bare, work);
-  await git.cwd(work);
-
-  if (targetBranch && targetBranch !== "HEAD") {
-    const remotes = await git.branch(["-r"]);
-    if (remotes.all.includes(`origin/${targetBranch}`)) {
-      await git.checkout(targetBranch);
-    } else {
-      await git.checkoutLocalBranch(targetBranch);
-    }
-  }
-
+  const zip = new AdmZip();
   for (const [name, content] of Object.entries(files)) {
-    fs.mkdirSync(path.dirname(path.join(work, name)), { recursive: true });
-    fs.writeFileSync(path.join(work, name), content);
+    zip.addFile(name, Buffer.from(content));
   }
-
-  await git.addConfig("user.email", "generated_by@openprime.com");
-  await git.addConfig("user.name", "OpenPrime");
-  await git.add(".");
-  const status = await git.status();
-  if (status.isClean()) return { pushed: false, overwritten: [] };
-
-  const overwritten = [...status.modified].sort();
-  await git.commit("Generated infrastructure with OpenPrime");
-  await git.push(targetBranch && targetBranch !== "HEAD" ? ["-u", "origin", targetBranch] : []);
-  return { pushed: true, overwritten, work };
+  return environmentService.pushInfrastructure(zip.toBuffer(), {
+    url: remote.url,
+    branch: targetBranch,
+    sshKey: "not-a-real-key",
+  });
 }
 
 /** Read a file from a branch of the bare repo — i.e. what the customer's CI sees. */
-async function fileOnBranch(branch, file) {
-  try {
-    return await simpleGit(bare).show([`${branch}:${file}`]);
-  } catch {
-    return null;
-  }
-}
+const fileOnBranch = (branch, file) => remote.fileOnBranch(branch, file);
 
 beforeEach(async () => {
   root = fs.mkdtempSync(path.join(os.tmpdir(), "op181-"));
-  await seedRemote();
+  remote = await createFakeSshRemote(root);
+  savedPath = process.env.PATH;
+  process.env.PATH = `${remote.binDir}${path.delimiter}${savedPath}`;
 });
 
 afterEach(() => {
+  process.env.PATH = savedPath;
   fs.rmSync(root, { recursive: true, force: true });
 });
 

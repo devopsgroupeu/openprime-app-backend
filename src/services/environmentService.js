@@ -19,9 +19,45 @@ if (!process.env.INJECTO_SERVICE_URL) {
   throw new Error("Missing required environment variable: INJECTO_SERVICE_URL");
 }
 
+// cloudCredentialId comes from the request body, so a caller can name a
+// credential that is not theirs; the environment list would then show its
+// name, account id and provider (OP-262 D24). Checked here, on every write,
+// rather than in one controller. Not found and not yours answer the same.
+async function assertOwnCloudCredential(credentialId, userId) {
+  if (!credentialId) {
+    return;
+  }
+  const { CloudCredential } = require("../models");
+  const credential = await CloudCredential.findOne({
+    where: { id: credentialId, user_id: userId },
+    attributes: ["id"],
+  });
+  if (!credential) {
+    const error = new Error("Cloud credential not found");
+    error.status = 404;
+    throw error;
+  }
+}
+
+// The generated tree is copied over the clone, so an entry under .git/ would
+// land in the repository's own metadata, where a core.fsmonitor setting runs a
+// command in this process (OP-262 D81). Judged on the path adm-zip writes: it
+// turns backslashes into slashes and resolves "..", so "x/../.git/config" and
+// ".git\config" both land in .git/config.
+function assertNoGitMetadata(zip) {
+  for (const { entryName } of zip.getEntries()) {
+    const written = path.posix.normalize(`/${entryName.split("\\").join("/")}`);
+    if (written.split("/").some((segment) => segment.toLowerCase() === ".git")) {
+      throw new Error(`Generated archive writes inside .git: ${entryName}`);
+    }
+  }
+}
+
 class EnvironmentService {
   async createEnvironment(data) {
     try {
+      await assertOwnCloudCredential(data.cloudCredentialId, data.user_id);
+
       const environmentData = {
         name: data.name,
         global_prefix: data.globalPrefix,
@@ -140,6 +176,8 @@ class EnvironmentService {
           throw error;
         }
       }
+
+      await assertOwnCloudCredential(data.cloudCredentialId, userId);
 
       const updateData = {
         name: environment.name,
@@ -313,7 +351,13 @@ class EnvironmentService {
         throw new Error(`Invalid repository URL: ${urlCheck.reason}`);
       }
 
-      const git = simpleGit({ timeout: { block: timeoutMs } }).env({
+      const git = simpleGit({
+        timeout: { block: timeoutMs },
+        // Passed as -c to every command, so nothing in the clone - or copied
+        // into it - can make git run a hook or an fsmonitor command in this
+        // process, which holds the decrypted deploy key (OP-262 D81).
+        config: ["core.hooksPath=/dev/null", "core.fsmonitor=false"],
+      }).env({
         ...process.env,
         // accept-new trusts a host we have never seen and pins it for the rest
         // of this push; `no` would also accept a *changed* key, which is the
@@ -326,24 +370,36 @@ class EnvironmentService {
         GIT_ALLOW_PROTOCOL: "https:ssh",
       });
 
-      // Clone user repo
-      logger.info("Cloning user repository", { url: git_repository.url });
-      await git.clone(git_repository.url, gitDir);
-      await git.cwd(gitDir);
-
       // Land on the branch the user configured. Until now the clone's default
       // branch was pushed while the configured branch was used only as the
       // ArgoCD targetRevision, so any branch other than the default produced
       // "pushed successfully" plus a cluster pointed at a branch that never
       // received the commit.
       const targetBranch = git_repository.branch?.trim();
-      if (targetBranch && targetBranch !== "HEAD") {
-        const remotes = await git.branch(["-r"]);
-        const existsRemotely = remotes.all.includes(`origin/${targetBranch}`);
+      const wantsBranch = Boolean(targetBranch) && targetBranch !== "HEAD";
+
+      // Only the tip of the one branch the push needs: a full clone of a large
+      // repository fills the pod's /tmp (OP-262 D81). A branch that does not
+      // exist yet is created off the default branch, so that is cloned instead.
+      let existsRemotely = false;
+      if (wantsBranch) {
+        const ref = `refs/heads/${targetBranch}`;
+        const heads = await git.listRemote(["--heads", git_repository.url, ref]);
+        existsRemotely = heads.split("\n").some((line) => line.endsWith(`\t${ref}`));
+      }
+      const cloneOptions = ["--depth", "1", "--single-branch"];
+      if (existsRemotely) {
+        cloneOptions.push("--branch", targetBranch);
+      }
+
+      // Clone user repo
+      logger.info("Cloning user repository", { url: git_repository.url });
+      await git.clone(git_repository.url, gitDir, cloneOptions);
+      await git.cwd(gitDir);
+
+      if (wantsBranch) {
         try {
-          if (existsRemotely) {
-            await git.checkout(targetBranch);
-          } else {
+          if (!existsRemotely) {
             // New branch off whatever the clone landed on, so the generated
             // tree is added to the repository's history rather than orphaned.
             await git.checkoutLocalBranch(targetBranch);
@@ -363,6 +419,7 @@ class EnvironmentService {
 
       // Extract zip
       const zip = new AdmZip(zipBuffer);
+      assertNoGitMetadata(zip);
       zip.extractAllTo(extractDir, true);
 
       // Copy extracted files to cloned repo dir
