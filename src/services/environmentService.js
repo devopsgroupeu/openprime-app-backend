@@ -313,8 +313,16 @@ class EnvironmentService {
         throw new Error(`Invalid repository URL: ${urlCheck.reason}`);
       }
 
+      // An explicit environment, not the backend's own: process.env holds
+      // DB_PASSWORD, CREDENTIALS_ENCRYPTION_KEY, the platform AWS keys and
+      // SERVICE_TOKEN, and git hands its environment to everything it starts
+      // (ssh, credential helpers). PATH finds git and ssh; HOME is this push's
+      // throwaway dir, so no global git config of the pod's user applies.
       const git = simpleGit({ timeout: { block: timeoutMs } }).env({
-        ...process.env,
+        PATH: process.env.PATH,
+        HOME: tempDir,
+        // Never wait for a human: fail instead of prompting for credentials.
+        GIT_TERMINAL_PROMPT: "0",
         // accept-new trusts a host we have never seen and pins it for the rest
         // of this push; `no` would also accept a *changed* key, which is the
         // shape of a man-in-the-middle. The known_hosts file lives in the temp
