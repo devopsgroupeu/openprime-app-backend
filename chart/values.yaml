@@ -313,6 +313,8 @@ networkPolicy:
         - podSelector:
             matchLabels:
               app.kubernetes.io/name: injecto
+  # DNS, Injecto and StateCraft as well, or the app cannot reach anything once
+  # this is enabled; 22/443 for git push, STS and Bedrock. Mirrors production.
   egress:
     - to:
         - podSelector:
@@ -321,3 +323,21 @@ networkPolicy:
         - podSelector:
             matchLabels:
               app.kubernetes.io/name: openprime-keycloak
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: injecto
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: statecraft
+    - to: []
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    - to: []
+      ports:
+        - protocol: TCP
+          port: 22
+        - protocol: TCP
+          port: 443
