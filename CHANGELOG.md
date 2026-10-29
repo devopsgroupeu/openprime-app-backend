@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.21.3](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.21.2...v1.21.3) (2026-10-29)
+
+### 🐛 Bug Fixes
+
+* hide 5xx detail, 404 missing credentials, validate request ids and preferences (OP-271) ([#47](https://github.com/devopsgroupeu/openprime-app-backend/issues/47)) ([cc34392](https://github.com/devopsgroupeu/openprime-app-backend/commit/cc3439271994e0f7634ac45d1eab019b02447ff9))
+
 ## [1.21.2](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.21.1...v1.21.2) (2026-10-29)
 
 ### 🐛 Bug Fixes
