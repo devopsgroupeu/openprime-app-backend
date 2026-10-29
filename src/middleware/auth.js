@@ -1,6 +1,8 @@
 const jwt = require("jsonwebtoken");
-const jwksClient = require("jwks-rsa");
+const rateLimit = require("express-rate-limit");
 const { logger } = require("../utils/logger");
+const userService = require("../services/userService");
+const { createSigningKeyStore, SigningKeysUnavailableError } = require("./signingKeys");
 
 // Validate required environment variables
 const requiredEnvVars = ["KEYCLOAK_REALM", "KEYCLOAK_URL"];
@@ -37,14 +39,42 @@ logger.debug("JWKS URI", {
   uri: `${keycloakConfig.serverUrl}/realms/${keycloakConfig.realm}/protocol/openid-connect/certs`,
 });
 
-const client = jwksClient({
-  jwksUri: `${keycloakConfig.serverUrl}/realms/${keycloakConfig.realm}/protocol/openid-connect/certs`,
-  requestHeaders: {},
-  timeout: 30000,
-  cache: true,
-  rateLimit: true,
-  jwksRequestsPerMinute: 10,
-  jwksRequestTimeout: 30000,
+const signingKeys = createSigningKeyStore(
+  `${keycloakConfig.serverUrl}/realms/${keycloakConfig.realm}/protocol/openid-connect/certs`,
+);
+
+// Deactivating a user (userService.deactivateUser sets is_active=false) has to
+// cut off the API, not only the UI. The lookup is cached per user for
+// ACTIVE_CACHE_MS, so a deactivated user keeps access for at most that long on
+// each pod. A user without a row yet is let through: the row is created on
+// first login (GET /api/users/me).
+const ACTIVE_CACHE_MS = 30 * 1000;
+const ACTIVE_CACHE_MAX_ENTRIES = 10000;
+const activeCache = new Map();
+
+async function isDeactivated(keycloakId) {
+  const cached = activeCache.get(keycloakId);
+  if (cached && cached.expiresAt > Date.now()) return cached.deactivated;
+
+  const user = await userService.getUserByKeycloakId(keycloakId);
+  const deactivated = user?.is_active === false;
+  if (activeCache.size >= ACTIVE_CACHE_MAX_ENTRIES) activeCache.clear();
+  activeCache.set(keycloakId, { deactivated, expiresAt: Date.now() + ACTIVE_CACHE_MS });
+  return deactivated;
+}
+
+// Every authenticated route passes through authenticateToken, so this is where
+// the per-user budget is enforced (OP-262, D34): colleagues behind one NAT no
+// longer share a budget, and more IPs buy an account nothing. The per-IP limit
+// in server.js stays in front as a flood guard for unauthenticated traffic.
+// Job polling is exempt here as it is there; it has its own limiter
+// (src/routes/jobs.js). The store is in memory, so the budget is per pod.
+const userLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 300,
+  keyGenerator: (req) => req.user.id,
+  skip: (req) => req.baseUrl === "/api/jobs",
+  message: { error: "Too many requests, please try again later." },
 });
 
 // Pure check: is this token's authorized-party (azp) or audience (aud) one of
@@ -54,17 +84,6 @@ function isAllowedClient(decoded, allowedClients) {
   if (allowedClients.length === 0) return true;
   const aud = Array.isArray(decoded.aud) ? decoded.aud : decoded.aud ? [decoded.aud] : [];
   return allowedClients.includes(decoded.azp) || aud.some((a) => allowedClients.includes(a));
-}
-
-function getKey(header, callback) {
-  client.getSigningKey(header.kid, (err, key) => {
-    if (err) {
-      logger.error("Error getting signing key", { error: err.message, kid: header.kid });
-      return callback(err);
-    }
-    const signingKey = key.publicKey || key.rsaPublicKey;
-    callback(null, signingKey);
-  });
 }
 
 const authenticateToken = async (req, res, next) => {
@@ -78,56 +97,77 @@ const authenticateToken = async (req, res, next) => {
 
     // Debug: Log token claims (sensitive - debug level only)
     const log = req.log || logger;
+    const unverified = jwt.decode(token, { complete: true });
+    log.debug("JWT token claims", {
+      aud: unverified?.payload?.aud,
+      iss: unverified?.payload?.iss,
+      sub: unverified?.payload?.sub,
+      clientId: unverified?.payload?.azp || unverified?.payload?.client_id,
+    });
+
+    let signingKey = null;
     try {
-      const decoded = jwt.decode(token);
-      log.debug("JWT token claims", {
-        aud: decoded?.aud,
-        iss: decoded?.iss,
-        sub: decoded?.sub,
-        clientId: decoded?.azp || decoded?.client_id,
+      const kid = unverified?.header?.kid;
+      if (kid) signingKey = await signingKeys.getKey(kid);
+    } catch (err) {
+      if (!(err instanceof SigningKeysUnavailableError)) throw err;
+      // Not the token's fault: answering 401 would log the user out.
+      return res.status(503).json({ error: "Authentication is temporarily unavailable" });
+    }
+    if (!signingKey) {
+      log.warn("Token verification failed", {
+        error: "unknown signing key",
+        kid: unverified?.header?.kid,
       });
-    } catch (e) {
-      log.debug("Failed to decode token for debugging", { error: e.message });
+      return res.status(401).json({ error: "Invalid or expired token" });
     }
 
-    jwt.verify(
-      token,
-      getKey,
-      {
+    let decoded;
+    try {
+      decoded = jwt.verify(token, signingKey, {
         issuer: keycloakConfig.allowedIssuers,
         algorithms: ["RS256"],
-      },
-      (err, decoded) => {
-        if (err) {
-          log.warn("Token verification failed", { error: err.message });
-          return res.status(401).json({ error: "Invalid or expired token" });
-        }
+      });
+    } catch (err) {
+      log.warn("Token verification failed", { error: err.message });
+      return res.status(401).json({ error: "Invalid or expired token" });
+    }
 
-        // Reject tokens minted for other clients in the realm. Signature/issuer
-        // alone accept any token the realm signs; azp/aud pins it to our client.
-        if (!isAllowedClient(decoded, keycloakConfig.allowedClients)) {
-          log.warn("Token rejected: azp/aud not in allowed clients", {
-            azp: decoded.azp,
-            aud: decoded.aud,
-          });
-          return res.status(401).json({ error: "Invalid or expired token" });
-        }
+    // Reject tokens minted for other clients in the realm. Signature/issuer
+    // alone accept any token the realm signs; azp/aud pins it to our client.
+    if (!isAllowedClient(decoded, keycloakConfig.allowedClients)) {
+      log.warn("Token rejected: azp/aud not in allowed clients", {
+        azp: decoded.azp,
+        aud: decoded.aud,
+      });
+      return res.status(401).json({ error: "Invalid or expired token" });
+    }
 
-        req.user = {
-          id: decoded.sub,
-          username: decoded.preferred_username,
-          email: decoded.email,
-          firstName: decoded.given_name,
-          lastName: decoded.family_name,
-          fullName: decoded.name,
-          roles: decoded.realm_access?.roles || [],
-          resourceAccess: decoded.resource_access || {},
-        };
+    let deactivated;
+    try {
+      deactivated = await isDeactivated(decoded.sub);
+    } catch (err) {
+      log.error("User status lookup failed", { error: err.message });
+      return res.status(503).json({ error: "Authentication is temporarily unavailable" });
+    }
+    if (deactivated) {
+      log.warn("Token rejected: user is deactivated", { userId: decoded.sub });
+      return res.status(403).json({ error: "User account is deactivated" });
+    }
 
-        log.debug("User authenticated", { userId: req.user.id, username: req.user.username });
-        next();
-      },
-    );
+    req.user = {
+      id: decoded.sub,
+      username: decoded.preferred_username,
+      email: decoded.email,
+      firstName: decoded.given_name,
+      lastName: decoded.family_name,
+      fullName: decoded.name,
+      roles: decoded.realm_access?.roles || [],
+      resourceAccess: decoded.resource_access || {},
+    };
+
+    log.debug("User authenticated", { userId: req.user.id, username: req.user.username });
+    userLimiter(req, res, next);
   } catch (error) {
     const log = req.log || logger;
     log.error("Authentication middleware error", { error: error.message, stack: error.stack });
@@ -153,4 +193,5 @@ module.exports = {
   authenticateToken,
   requireRole,
   isAllowedClient,
+  prefetchSigningKeys: signingKeys.prefetch,
 };

@@ -73,6 +73,13 @@ npm test
 Everything below is mounted under `/api` and requires a Keycloak JWT, except
 `GET /health`, which is served on the server root.
 
+Authentication and limits:
+
+- Tokens are verified against Keycloak's signing keys, which are loaded at startup and refreshed every 10 minutes. A token with an unknown `kid` triggers at most one refetch every 30 seconds, so it cannot exhaust anything that valid tokens depend on. If the keys cannot be fetched, the API answers `503`, not `401`.
+- A user deactivated in OpenPrime (`is_active = false`) gets `403`. The check is cached for 30 seconds per user and pod.
+- Each signed-in user gets 300 requests per 15 minutes, with job polling exempt. A per-IP limit of 1000 requests per 15 minutes guards against floods ahead of authentication. Both are held in memory, per pod. `trust proxy` is `1` (browser → ALB → pod).
+- JSON bodies are limited to 1 MB; the largest legitimate one, a fully configured environment, is about 120 KiB.
+
 ### Environments
 
 - `GET /api/environments` - List the caller's environments
