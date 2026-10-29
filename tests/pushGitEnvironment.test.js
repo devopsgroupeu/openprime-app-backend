@@ -72,5 +72,10 @@ describe("pushInfrastructure hands git an explicit environment", () => {
         value === process.env.CREDENTIALS_ENCRYPTION_KEY,
     );
     expect(leaked).toEqual([]);
+
+    // What the push does set still arrives: simple-git 4 filters the GIT_*
+    // variables it hands git and passes only those the push allows (OP-191).
+    expect(sshEnv).toMatchObject({ GIT_ALLOW_PROTOCOL: "https:ssh", GIT_TERMINAL_PROMPT: "0" });
+    expect(sshEnv.GIT_SSH_COMMAND).toMatch(/^ssh -i \S+ -o StrictHostKeyChecking=accept-new /);
   });
 });

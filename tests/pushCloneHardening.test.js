@@ -13,7 +13,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const AdmZip = require("adm-zip");
-const simpleGit = require("simple-git");
+const { simpleGit } = require("simple-git");
 const { createFakeSshRemote } = require("./helpers/fakeSshRemote");
 const environmentService = jest.requireActual("../src/services/environmentService");
 

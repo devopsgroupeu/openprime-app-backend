@@ -8,7 +8,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const AdmZip = require("adm-zip");
-const simpleGit = require("simple-git");
+const { simpleGit } = require("simple-git");
 const { validateGitRepositoryUrl, checkRepositoryAddress } = require("../validators/gitUrl");
 const { parseGenerationFailure, generationError } = require("../utils/generationErrors");
 const { mergeGitRepository } = require("../utils/sshKey");
@@ -366,6 +366,15 @@ class EnvironmentService {
         // into it - can make git run a hook or an fsmonitor command in this
         // process, which holds the decrypted deploy key (OP-262 D81).
         config: ["core.hooksPath=/dev/null", "core.fsmonitor=false"],
+        // simple-git 4 refuses these config keys and GIT_* variables unless
+        // opted in, whatever their value. Each is set only here, to switch git
+        // behaviour off or pin it; none comes from the request.
+        unsafe: {
+          allowUnsafeHooksPath: true,
+          allowUnsafeFsMonitor: true,
+          allowUnsafeSshCommand: true,
+        },
+        allowEnvironment: ["GIT_TERMINAL_PROMPT", "GIT_SSH_COMMAND", "GIT_ALLOW_PROTOCOL"],
       }).env({
         PATH: process.env.PATH,
         HOME: tempDir,
