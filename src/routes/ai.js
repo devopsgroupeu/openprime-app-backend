@@ -18,8 +18,8 @@ const perUserLimit = (windowMs, max) =>
   });
 
 const aiChatLimits = [
-  perUserLimit(60 * 1000, parseInt(process.env.AI_CHAT_MAX_PER_MINUTE || "10", 10)),
-  perUserLimit(24 * 60 * 60 * 1000, parseInt(process.env.AI_CHAT_MAX_PER_DAY || "200", 10)),
+  perUserLimit(60 * 1000, parseInt(process.env.AI_CHAT_MAX_PER_MINUTE || "20", 10)),
+  perUserLimit(24 * 60 * 60 * 1000, parseInt(process.env.AI_CHAT_MAX_PER_DAY || "400", 10)),
 ];
 
 router.post("/chat", authenticateToken, aiChatLimits, chat);
