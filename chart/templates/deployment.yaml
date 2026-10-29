@@ -1,6 +1,7 @@
 {{- if and .Values.metrics.enabled (eq (int .Values.metrics.port) (int .Values.service.targetPort)) }}
 {{- fail "metrics.port must differ from service.targetPort: the metrics listener and the API cannot share a port" }}
 {{- end }}
+{{- include "openprime-app-backend.validateRequiredValues" . }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:

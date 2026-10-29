@@ -174,6 +174,9 @@ app:
     KEYCLOAK_REALM: "openprime"
     KEYCLOAK_CLIENT_ID: "openprime-app"
     INJECTO_SERVICE_URL: "http://injecto:8000"
+    # Required, no default: StateCraft's Service port differs per install
+    # (chart default 80, production 8001).
+    # STATECRAFT_SERVICE_URL: "http://statecraft:80"
 
     # AWS Configuration (if needed)
     AWS_REGION: "us-east-1"
@@ -207,14 +210,12 @@ app:
     - AWS_SECRET_ACCESS_KEY
     - BEDROCK_INFERENCE_PROFILE_ARN
     - CREDENTIALS_ENCRYPTION_KEY
-  # Secrets to create (only used when existingSecret is not set)
-  secrets:
-    # Database password
-    DB_PASSWORD: "openprime123"
-    # AWS credentials for Bedrock AI integration
-    AWS_ACCESS_KEY_ID: "secret"
-    AWS_SECRET_ACCESS_KEY: "secret"
-    BEDROCK_INFERENCE_PROFILE_ARN: "secret"
+    - SERVICE_TOKEN
+  # Secrets to create (only used when existingSecret is not set). No defaults:
+  # the render fails unless DB_PASSWORD, CREDENTIALS_ENCRYPTION_KEY and
+  # SERVICE_TOKEN come from here or from existingSecret. Optional: the AWS_* keys
+  # and BEDROCK_INFERENCE_PROFILE_ARN for the AI assistant.
+  secrets: {}
 
 # Dedicated single-instance job worker (generate/push). Runs as its own
 # Deployment (worker-deployment.yaml) with replicas: 1 so a rolling restart of
@@ -244,7 +245,7 @@ worker:
 # production while migrations are pending (validate-not-mutate), so this must be
 # enabled wherever the app runs against a managed/persistent database.
 migrations:
-  enabled: false
+  enabled: true
   # Command executed inside the backend image.
   command:
     - node
@@ -265,15 +266,17 @@ persistence:
   enabled: true
   # Storage for uploads. ReadWriteOnce: generated ZIPs are stored in the DB
   # (jobs.artifact), not on this volume, so it does not need to be shared.
+  # Off by default: nothing in the code writes to it, and a ReadWriteOnce claim
+  # mounted by two API replicas on different nodes fails with Multi-Attach.
   uploads:
-    enabled: true
+    enabled: false
     storageClass: ""
     accessMode: ReadWriteOnce
     size: 5Gi
     mountPath: /app/uploads
-  # Storage for logs
+  # Storage for logs. Off by default: in Kubernetes the backend logs to stdout only.
   logs:
-    enabled: true
+    enabled: false
     storageClass: ""
     accessMode: ReadWriteMany
     size: 2Gi

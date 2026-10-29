@@ -132,3 +132,25 @@ override of that list replaces it wholesale and would silently drop the rule.
       port: {{ .Values.metrics.port }}
 {{- end }}
 
+{{/*
+Fail the render when a value the backend cannot run without is missing, instead
+of shipping pods that crash on start. A value counts when it is a non-empty
+app.env entry, a key of app.existingSecret (listed in app.existingSecretKeys) or,
+without an existingSecret, a non-empty app.secrets entry.
+*/}}
+{{- define "openprime-app-backend.validateRequiredValues" -}}
+{{- $provided := list -}}
+{{- range $key, $value := .Values.app.env }}{{ if $value }}{{ $provided = append $provided $key }}{{ end }}{{ end -}}
+{{- if .Values.app.existingSecret -}}
+{{- $provided = concat $provided .Values.app.existingSecretKeys -}}
+{{- else -}}
+{{- range $key, $value := .Values.app.secrets }}{{ if $value }}{{ $provided = append $provided $key }}{{ end }}{{ end -}}
+{{- end -}}
+{{- $missing := list -}}
+{{- range list "STATECRAFT_SERVICE_URL" "DB_PASSWORD" "CREDENTIALS_ENCRYPTION_KEY" "SERVICE_TOKEN" -}}
+{{- if not (has . $provided) }}{{ $missing = append $missing . }}{{ end -}}
+{{- end -}}
+{{- if $missing -}}
+{{- fail (printf "missing required values: %s. Set STATECRAFT_SERVICE_URL in app.env; provide the secrets via app.existingSecret + app.existingSecretKeys, or app.secrets" (join ", " $missing)) -}}
+{{- end -}}
+{{- end }}
