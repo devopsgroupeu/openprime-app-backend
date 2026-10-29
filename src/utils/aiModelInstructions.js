@@ -31,4 +31,9 @@ Guidelines:
 - If asked something unrelated or unsafe, politely decline.
 `;
 
-module.exports = { systemInstructionText };
+// How to phrase a configuration suggestion so the wizard can offer to apply
+// it (AIChatModal extracts the JSON block). The wizard used to send this as a
+// client "system" message; the backend no longer forwards those (OP-263).
+const suggestionInstructionText = `When making configuration suggestions: 1) First analyze if the current config is already optimal for the user's needs. 2) If current config is already good, just explain why it's optimal instead of suggesting changes. 3) Only suggest changes when there's a meaningful improvement. 4) When suggesting changes, use JSON code blocks with exact field names and ONLY use valid field values (especially for dropdown fields - stick to the allowed options). 5) Include suggestion keywords like "I recommend". 6) Avoid suggesting minor variations (like different CIDR ranges) of essentially the same configuration strategy.`;
+
+module.exports = { systemInstructionText, suggestionInstructionText };

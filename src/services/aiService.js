@@ -1,5 +1,4 @@
 // src/services/aiService.js
-const { systemInstructionText } = require("../utils/aiModelInstructions");
 const {
   BedrockRuntimeClient,
   ConverseStreamCommand,
@@ -26,24 +25,6 @@ for (const operation of ["ConverseStream", "Converse"]) {
   }
 }
 
-// Build the system prompt array for Bedrock's dedicated system field
-function toBedrockSystem(topic) {
-  const topicContext = topic
-    ? `\n\nContext for this conversation: Focus only on **${topic}**.
-      Answer with best practices, common issues, security, and cost optimization for ${topic}.`
-    : "";
-
-  return [{ text: `${systemInstructionText}${topicContext}` }];
-}
-
-// Convert frontend messages to Bedrock format
-function toBedrockMessages(messages) {
-  return messages.map((m) => ({
-    role: m.type === "user" ? "user" : "assistant",
-    content: [{ text: m.content || m.message }],
-  }));
-}
-
 // Time one logical Bedrock call (all throttling retries included, since that
 // is the latency the user waits through) and record its outcome.
 async function observeBedrockCall(operation, call) {
@@ -67,12 +48,13 @@ async function observeBedrockCall(operation, call) {
   }
 }
 
-// Retry wrapper with exponential backoff
-async function sendWithRetry(operation, cmd, maxRetries = 5) {
+// Retry wrapper with exponential backoff. Once `signal` aborts (the client
+// went away) the in-flight call is cancelled and no further attempt is made.
+async function sendWithRetry(operation, cmd, signal, maxRetries = 5) {
   let delay = 500;
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      return await client.send(cmd);
+      return await client.send(cmd, { abortSignal: signal });
     } catch (err) {
       if (err.name === "ThrottlingException") {
         bedrockThrottlesTotal.inc({ operation });
@@ -82,6 +64,7 @@ async function sendWithRetry(operation, cmd, maxRetries = 5) {
         console.warn(`Throttled by Bedrock. Retry #${attempt + 1} in ${delay}ms`);
         await new Promise((res) => setTimeout(res, delay));
         delay *= 2;
+        signal?.throwIfAborted();
       } else {
         throw err;
       }
@@ -90,27 +73,26 @@ async function sendWithRetry(operation, cmd, maxRetries = 5) {
   throw new Error("Max retries reached due to throttling.");
 }
 
-// Main function to handle chat with optional topic
-async function streamChat({ messages, topic }, onChunk) {
-  const system = toBedrockSystem(topic);
-  const bedrockMessages = toBedrockMessages(messages);
-
+// Run one chat turn. `system` and `messages` are already in Bedrock's format,
+// built and sanitised by buildChatRequest (src/services/aiChatRequest.js).
+async function streamChat({ system, messages }, onChunk, { signal } = {}) {
   try {
     const cmd = new ConverseStreamCommand({
       modelId: MODEL_ID,
       system,
-      messages: bedrockMessages,
+      messages,
       inferenceConfig: { maxTokens: 400 },
     });
 
     // Timed through the end of the stream: a stream that breaks midway is a
     // failed call, and the time to read it out is part of the latency.
     const buffer = await observeBedrockCall("ConverseStream", async () => {
-      const res = await sendWithRetry("ConverseStream", cmd);
+      const res = await sendWithRetry("ConverseStream", cmd, signal);
 
       let text = "";
 
       for await (const event of res.stream) {
+        signal?.throwIfAborted();
         if (event.contentBlockDelta?.delta?.text) {
           text += event.contentBlockDelta.delta.text;
         }
@@ -121,15 +103,18 @@ async function streamChat({ messages, topic }, onChunk) {
 
     onChunk(buffer, { done: true });
   } catch (err) {
+    // Nobody is waiting for the answer: a second, non-streaming call would only
+    // be billed.
+    if (signal?.aborted) throw err;
     console.error("Streaming failed, fallback to non-streaming:", err.message);
     const cmd = new ConverseCommand({
       modelId: MODEL_ID,
       system,
-      messages: bedrockMessages,
+      messages,
       inferenceConfig: { maxTokens: 400 },
     });
 
-    const res = await observeBedrockCall("Converse", () => sendWithRetry("Converse", cmd));
+    const res = await observeBedrockCall("Converse", () => sendWithRetry("Converse", cmd, signal));
     const text = res?.output?.message?.content?.map((c) => c.text).join("") || "";
     onChunk(text, { done: true });
   }

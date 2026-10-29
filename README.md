@@ -124,6 +124,8 @@ Secrets are AES-256-GCM encrypted at rest and redacted from every response.
 
 - `POST /api/ai/chat` - Configuration assistance via AWS Bedrock
 
+The backend decides what reaches the model, whatever the client sends. Client `system` messages are dropped; only `user`/`assistant` turns are accepted, of which the last 20 are forwarded, each cut at 4,000 characters. The environment context is rebuilt from an allow-list (environment name, provider, region and the catalog-described settings of the enabled services) and sent as a delimited user turn: the repository URL and SSH key, cloud credential IDs, Helm values and free-form objects never leave the backend. `currentService`/`topic` must name a catalog service (400 otherwise). Each user gets `AI_CHAT_MAX_PER_MINUTE` (default 10) and `AI_CHAT_MAX_PER_DAY` (default 200) requests, counted per pod. A dropped connection cancels the Bedrock call.
+
 ### Health
 
 - `GET /health` - Health check. On the server root, outside `/api` and outside the rate limiter
