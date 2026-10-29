@@ -172,12 +172,9 @@ exports.generateInfrastructure = async (req, res, next) => {
     // Call Injecto service to generate infrastructure
     const zipBuffer = await environmentService.generateInfrastructure(environment);
 
-    // Set response headers for ZIP download
-    res.setHeader("Content-Type", "application/zip");
-    res.setHeader(
-      "Content-Disposition",
-      `attachment; filename=${environment.name}-infrastructure.zip`,
-    );
+    // Set response headers for ZIP download. res.attachment quotes and encodes
+    // the name (it may hold spaces, ";" or non-Latin-1) and sets application/zip.
+    res.attachment(`${environment.name}-infrastructure.zip`);
     res.send(zipBuffer);
   } catch (error) {
     req.log.error("Failed to generate infrastructure", {
