@@ -24,6 +24,12 @@ function invalidCredentialsError(message) {
   return error;
 }
 
+function credentialNotFoundError() {
+  const error = new Error("Credential not found");
+  error.status = 404;
+  return error;
+}
+
 function verificationFailedError(message) {
   const error = new Error(`Could not verify AWS credentials: ${message || "unknown error"}`);
   error.status = 400;
@@ -153,7 +159,7 @@ class CloudCredentialService {
       });
 
       if (!credential) {
-        throw new Error("Credential not found");
+        throw credentialNotFoundError();
       }
 
       if (updateData.isDefault) {
@@ -231,7 +237,7 @@ class CloudCredentialService {
       });
 
       if (!credential) {
-        throw new Error("Credential not found");
+        throw credentialNotFoundError();
       }
 
       // Hard delete - actually remove from database
@@ -292,7 +298,7 @@ class CloudCredentialService {
       });
 
       if (!credential) {
-        throw new Error("Credential not found");
+        throw credentialNotFoundError();
       }
 
       await CloudCredential.update(

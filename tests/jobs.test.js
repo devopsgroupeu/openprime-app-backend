@@ -92,7 +92,7 @@ describe("Async job API", () => {
 
       expect(response.headers["content-type"]).toContain("application/zip");
       expect(response.headers["content-disposition"]).toBe(
-        "attachment; filename=Test Env-infrastructure.zip",
+        'attachment; filename="Test Env-infrastructure.zip"',
       );
       // supertest does not parse non-JSON bodies into res.body; the raw stream
       // is available as res.text.
@@ -297,7 +297,7 @@ describe("Async job API", () => {
 
       expect(response.headers["content-type"]).toContain("application/zip");
       expect(response.headers["content-disposition"]).toBe(
-        "attachment; filename=Test Env-infrastructure.zip",
+        'attachment; filename="Test Env-infrastructure.zip"',
       );
       // supertest does not parse non-JSON bodies into res.body; the raw stream
       // is available as res.text.

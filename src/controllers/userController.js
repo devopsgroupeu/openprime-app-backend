@@ -1,3 +1,4 @@
+const { matchedData, validationResult } = require("express-validator");
 const userService = require("../services/userService");
 
 class UserController {
@@ -64,12 +65,20 @@ class UserController {
 
   async updatePreferences(req, res) {
     try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
+
       const user = await userService.getUserByKeycloakId(req.user.id);
       if (!user) {
         return res.status(404).json({ error: "User not found" });
       }
 
-      const updatedUser = await userService.updateUserPreferences(user.id, req.body);
+      // Only the fields the route validates; anything else in the body is
+      // dropped rather than merged into the stored preferences.
+      const preferences = matchedData(req, { locations: ["body"] });
+      const updatedUser = await userService.updateUserPreferences(user.id, preferences);
 
       req.log.info("Preferences updated", { userId: user.id });
       res.json({

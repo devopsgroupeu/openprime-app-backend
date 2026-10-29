@@ -61,8 +61,8 @@ exports.downloadJobArtifact = async (req, res, next) => {
     }
 
     const envName = job.payload?.environment?.name || "infrastructure";
-    res.setHeader("Content-Type", "application/zip");
-    res.setHeader("Content-Disposition", `attachment; filename=${envName}-infrastructure.zip`);
+    // Quotes and encodes the name, and sets application/zip from the extension.
+    res.attachment(`${envName}-infrastructure.zip`);
     res.send(Buffer.from(job.artifact));
   } catch (error) {
     req.log.error("Failed to download job artifact", {

@@ -23,11 +23,16 @@ router.get("/me/preferences", authenticateToken, userController.getPreferences);
 router.put(
   "/me/preferences",
   authenticateToken,
+  // The only fields stored: the controller keeps what these validators matched.
   [
     body("theme").optional().isIn(["light", "dark"]),
     body("notifications").optional().isBoolean(),
-    body("defaultProvider").optional().isIn(["aws", "azure", "gcp", "onpremise"]),
+    // "on-premise" is what the settings page's select sends; everything else
+    // in the API spells it "onpremise".
+    body("defaultProvider").optional().isIn(["aws", "azure", "gcp", "onpremise", "on-premise"]),
     body("defaultRegion").optional().isString().trim(),
+    body("gitIntegration.platform").optional().isString().trim().isLength({ max: 50 }),
+    body("gitIntegration.orgUrl").optional().isString().trim().isLength({ max: 2048 }),
   ],
   userController.updatePreferences,
 );
