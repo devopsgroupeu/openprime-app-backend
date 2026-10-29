@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.21.7](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.21.6...v1.21.7) (2026-10-29)
+
+### 🐛 Bug Fixes
+
+* **chart:** safe defaults and console logging in Kubernetes (OP-270) ([#48](https://github.com/devopsgroupeu/openprime-app-backend/issues/48)) ([fe7ba2d](https://github.com/devopsgroupeu/openprime-app-backend/commit/fe7ba2d34d6ec1624ef0274ecafac304c8c1705e))
+
 ## [1.21.6](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.21.5...v1.21.6) (2026-10-29)
 
 ### 🐛 Bug Fixes
