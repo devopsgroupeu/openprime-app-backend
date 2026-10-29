@@ -142,67 +142,120 @@ describe("globalPrefix on update: an existing value keeps its own shape", () => 
   // all: the wizard posts the whole environment back, and this validator
   // runs before updateEnvironmentByUser's own "unchanged is fine, changed is
   // rejected" immutability check ever gets a chance to run.
-  const { Environment } = require("../src/models");
-  let findOneSpy;
+  //
+  // req.user.id is the Keycloak subject; environments.user_id is the internal
+  // users.id, and the two never coincide. The rows below are therefore
+  // resolved the way production resolves them - the real userService finds
+  // the user by keycloak_id, then the environment is looked up by the
+  // internal id - against a store that enforces the where clause. The stub
+  // this replaces answered any query, so it agreed with a lookup by the
+  // Keycloak subject that could never match a real row (OP-272).
+  const { Environment, User } = require("../src/models");
+  const userService = require("../src/services/userService");
+  const realUserService = jest.requireActual("../src/services/userService");
+
+  const LEGACY = "1App--legacy-"; // digit first, uppercase, double hyphen
+  const users = [
+    { id: "internal-uuid-a", keycloak_id: "kc-sub-a" },
+    { id: "internal-uuid-b", keycloak_id: "kc-sub-b" },
+  ];
+  const environments = [
+    { id: "env-a", user_id: "internal-uuid-a", global_prefix: LEGACY },
+    { id: "env-b", user_id: "internal-uuid-b", global_prefix: LEGACY },
+  ];
+  const matches = (row, where) => Object.entries(where).every(([k, v]) => row[k] === v);
+  const prefixErrors = (result) => result.array().filter((e) => e.path === "globalPrefix");
+
+  const originalGetUser = userService.getUserByKeycloakId.getMockImplementation();
+  let userFindOne;
+  let envFindOne;
 
   beforeEach(() => {
-    findOneSpy = jest.spyOn(Environment, "findOne").mockResolvedValue(null);
+    userFindOne = jest
+      .spyOn(User, "findOne")
+      .mockImplementation(({ where }) =>
+        Promise.resolve(users.find((u) => matches(u, where)) || null),
+      );
+    envFindOne = jest
+      .spyOn(Environment, "findOne")
+      .mockImplementation(({ where }) =>
+        Promise.resolve(environments.find((e) => matches(e, where)) || null),
+      );
+    userService.getUserByKeycloakId.mockImplementation((keycloakId) =>
+      realUserService.getUserByKeycloakId(keycloakId),
+    );
   });
 
   afterEach(() => {
-    findOneSpy.mockRestore();
+    userFindOne.mockRestore();
+    envFindOne.mockRestore();
+    userService.getUserByKeycloakId.mockImplementation(originalGetUser);
   });
 
   it("accepts an unchanged prefix that predates the tightened charset", async () => {
-    findOneSpy.mockResolvedValue({ global_prefix: "1App--legacy-" });
-
     const result = await runValidators(
-      { name: "demo", provider: "aws", globalPrefix: "1App--legacy-" },
-      { params: { id: "env-1" }, user: { id: "user-1" } },
+      { name: "demo", provider: "aws", globalPrefix: LEGACY },
+      { params: { id: "env-a" }, user: { id: "kc-sub-a" } },
     );
 
-    expect(findOneSpy).toHaveBeenCalledWith({
-      where: { id: "env-1", user_id: "user-1" },
+    expect(prefixErrors(result)).toEqual([]);
+    expect(envFindOne).toHaveBeenCalledWith({
+      where: { id: "env-a", user_id: "internal-uuid-a" },
       attributes: ["global_prefix"],
     });
-    const prefixErrors = result.array().filter((e) => e.path === "globalPrefix");
-    expect(prefixErrors).toEqual([]);
   });
 
   it("still rejects a genuinely new value that doesn't match the current charset", async () => {
-    findOneSpy.mockResolvedValue({ global_prefix: "op-" });
-
     const result = await runValidators(
       { name: "demo", provider: "aws", globalPrefix: "1app-" },
-      { params: { id: "env-1" }, user: { id: "user-1" } },
+      { params: { id: "env-a" }, user: { id: "kc-sub-a" } },
     );
 
-    const prefixErrors = result.array().filter((e) => e.path === "globalPrefix");
-    expect(prefixErrors.length).toBeGreaterThan(0);
+    expect(prefixErrors(result).length).toBeGreaterThan(0);
+  });
+
+  it("never grandfathers a value against another user's environment", async () => {
+    // env-b stores exactly this prefix, but it belongs to user b.
+    const result = await runValidators(
+      { name: "demo", provider: "aws", globalPrefix: LEGACY },
+      { params: { id: "env-b" }, user: { id: "kc-sub-a" } },
+    );
+
+    expect(prefixErrors(result).length).toBeGreaterThan(0);
+  });
+
+  it("does not grandfather anything for a caller with no user row yet", async () => {
+    const result = await runValidators(
+      { name: "demo", provider: "aws", globalPrefix: LEGACY },
+      { params: { id: "env-a" }, user: { id: "kc-sub-unknown" } },
+    );
+
+    expect(envFindOne).not.toHaveBeenCalled();
+    expect(prefixErrors(result).length).toBeGreaterThan(0);
   });
 
   it("still validates normally on create (no params.id to look up)", async () => {
     const result = await runValidators(
       { name: "demo", provider: "aws", globalPrefix: "1app-" },
-      { user: { id: "user-1" } },
+      { user: { id: "kc-sub-a" } },
     );
 
-    expect(findOneSpy).not.toHaveBeenCalled();
-    const prefixErrors = result.array().filter((e) => e.path === "globalPrefix");
-    expect(prefixErrors.length).toBeGreaterThan(0);
+    expect(userFindOne).not.toHaveBeenCalled();
+    expect(envFindOne).not.toHaveBeenCalled();
+    expect(prefixErrors(result).length).toBeGreaterThan(0);
   });
 
   // Performance: the regex is checked first, so a PUT that already matches
   // the current charset - every environment created after OP-231, not just
-  // ones untouched by this update - never pays for the DB round trip at all.
-  it("skips the DB lookup entirely when the submitted value already matches the current charset", async () => {
+  // ones untouched by this update - never pays for the DB round trips at all.
+  it("skips the DB lookups entirely when the submitted value already matches the current charset", async () => {
     const result = await runValidators(
       { name: "demo", provider: "aws", globalPrefix: "op-" },
-      { params: { id: "env-1" }, user: { id: "user-1" } },
+      { params: { id: "env-a" }, user: { id: "kc-sub-a" } },
     );
 
-    expect(findOneSpy).not.toHaveBeenCalled();
-    const prefixErrors = result.array().filter((e) => e.path === "globalPrefix");
-    expect(prefixErrors).toEqual([]);
+    expect(userFindOne).not.toHaveBeenCalled();
+    expect(envFindOne).not.toHaveBeenCalled();
+    expect(prefixErrors(result)).toEqual([]);
   });
 });
