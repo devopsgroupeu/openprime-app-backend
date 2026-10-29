@@ -2,6 +2,7 @@
 const { body } = require("express-validator");
 const { validateGitRepositoryUrl } = require("./gitUrl");
 const { Environment } = require("../models");
+const userService = require("../services/userService");
 const { validateServices } = require("./serviceSchema");
 
 // Characters that are dangerous once a value is interpolated into generated HCL
@@ -84,10 +85,16 @@ exports.validateEnvironment = [
         return true;
       }
       if (req.params?.id && req.user?.id) {
-        const existing = await Environment.findOne({
-          where: { id: req.params.id, user_id: req.user.id },
-          attributes: ["global_prefix"],
-        });
+        // req.user.id is the Keycloak subject, environments.user_id the
+        // internal users.id - resolve one to the other as every controller
+        // does, or the lookup can never match (OP-272).
+        const user = await userService.getUserByKeycloakId(req.user.id);
+        const existing =
+          user &&
+          (await Environment.findOne({
+            where: { id: req.params.id, user_id: user.id },
+            attributes: ["global_prefix"],
+          }));
         if (existing && existing.global_prefix === value) {
           return true;
         }
