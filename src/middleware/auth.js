@@ -28,9 +28,11 @@ const keycloakConfig = {
     .filter(Boolean),
 };
 
+// Fail closed (OP-260): without an allow-list the API would accept a token
+// minted for any client in the realm. Refuse to boot instead of warning.
 if (keycloakConfig.allowedClients.length === 0) {
-  logger.warn(
-    "Audience validation disabled: set KEYCLOAK_CLIENT_ID (or KEYCLOAK_ALLOWED_CLIENTS) to restrict which OIDC clients the API accepts",
+  throw new Error(
+    "Missing client allow-list: set KEYCLOAK_CLIENT_ID (or KEYCLOAK_ALLOWED_CLIENTS) to the OIDC client(s) whose tokens the API accepts",
   );
 }
 
@@ -78,10 +80,8 @@ const userLimiter = rateLimit({
 });
 
 // Pure check: is this token's authorized-party (azp) or audience (aud) one of
-// the clients we trust? An empty allow-list means validation is disabled and
-// every client is accepted (returns true).
+// the clients we trust? An empty allow-list accepts nothing.
 function isAllowedClient(decoded, allowedClients) {
-  if (allowedClients.length === 0) return true;
   const aud = Array.isArray(decoded.aud) ? decoded.aud : decoded.aud ? [decoded.aud] : [];
   return allowedClients.includes(decoded.azp) || aud.some((a) => allowedClients.includes(a));
 }

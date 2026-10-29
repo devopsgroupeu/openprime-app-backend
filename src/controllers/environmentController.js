@@ -172,12 +172,9 @@ exports.generateInfrastructure = async (req, res, next) => {
     // Call Injecto service to generate infrastructure
     const zipBuffer = await environmentService.generateInfrastructure(environment);
 
-    // Set response headers for ZIP download
-    res.setHeader("Content-Type", "application/zip");
-    res.setHeader(
-      "Content-Disposition",
-      `attachment; filename=${environment.name}-infrastructure.zip`,
-    );
+    // Set response headers for ZIP download. res.attachment quotes and encodes
+    // the name (it may hold spaces, ";" or non-Latin-1) and sets application/zip.
+    res.attachment(`${environment.name}-infrastructure.zip`);
     res.send(zipBuffer);
   } catch (error) {
     req.log.error("Failed to generate infrastructure", {
@@ -335,7 +332,16 @@ exports.createTerraformBackend = async (req, res, next) => {
     const result = await statecraftService.createBackendResources(statecraftConfig);
 
     if (!result.success) {
-      req.log.error("Terraform backend creation failed", { error: result.error });
+      req.log.error("Terraform backend creation failed", {
+        error: result.error,
+        status: result.status,
+      });
+      // These carry a message written for the user: bucket name taken or owned by
+      // another environment, invalid name, missing S3 permissions (OP-261). Other
+      // statuses (StateCraft auth, request validation, outages) are ours to fix.
+      if ([400, 403, 409].includes(result.status)) {
+        return res.status(result.status).json({ success: false, error: result.error });
+      }
       return res.status(500).json({
         success: false,
         error: "Failed to create Terraform backend resources",

@@ -80,6 +80,8 @@ Authentication and limits:
 - Each signed-in user gets 600 requests per 15 minutes, with job polling exempt. A per-IP limit of 1000 requests per 15 minutes guards against floods ahead of authentication. Both are held in memory, per pod. `trust proxy` is `1` (browser → ALB → pod).
 - JSON bodies are limited to 1 MB; the largest legitimate one, a fully configured environment, is about 120 KiB.
 
+Every response carries an `X-Request-ID`. A client may send its own (letters, digits and `-`, at most 64 characters); anything else is replaced with a generated id. An unexpected error answers `{ "error": "Internal Server Error", "requestId": ... }` and the detail is logged under that id; a 4xx keeps its message.
+
 ### Environments
 
 - `GET /api/environments` - List the caller's environments
@@ -124,12 +126,14 @@ Secrets are AES-256-GCM encrypted at rest and redacted from every response.
 - `GET /api/users/me` - Current user
 - `PUT /api/users/me` - Update current user
 - `GET /api/users/me/preferences` - Get preferences
-- `PUT /api/users/me/preferences` - Update preferences
+- `PUT /api/users/me/preferences` - Update preferences. Only `theme`, `notifications`, `defaultProvider`, `defaultRegion` and `gitIntegration.platform`/`gitIntegration.orgUrl` are stored; other fields are ignored and an invalid value is a 400
 - `GET /api/users` - List all users (**admin only**)
 
 ### AI
 
 - `POST /api/ai/chat` - Configuration assistance via AWS Bedrock
+
+The backend decides what reaches the model, whatever the client sends. Client `system` messages are dropped; only `user`/`assistant` turns are accepted, of which the last 20 are forwarded, each cut at 4,000 characters. The environment context is rebuilt from an allow-list (environment name, provider, region and the catalog-described settings of the enabled services) and sent as a delimited user turn: the repository URL and SSH key, cloud credential IDs, Helm values and free-form objects never leave the backend. `currentService`/`topic` must name a catalog service (400 otherwise). Each user gets `AI_CHAT_MAX_PER_MINUTE` (default 20) and `AI_CHAT_MAX_PER_DAY` (default 400) requests, counted per pod. A dropped connection cancels the Bedrock call.
 
 ### Health
 

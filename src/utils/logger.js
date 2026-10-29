@@ -81,9 +81,12 @@ const logger = winston.createLogger({
 
 // Add console logging based on CONSOLE_LOGGING env var or if not in production
 // This ensures logs are visible in Kubernetes pods via kubectl logs
+// Always when there is no file transport (Kubernetes): with no transport at all,
+// winston prints every record raw to stderr, before redaction and at every level.
 const shouldLogToConsole =
-  process.env.CONSOLE_LOGGING !== "false" &&
-  (process.env.NODE_ENV !== "production" || process.env.CONSOLE_LOGGING === "true");
+  transports.length === 0 ||
+  (process.env.CONSOLE_LOGGING !== "false" &&
+    (process.env.NODE_ENV !== "production" || process.env.CONSOLE_LOGGING === "true"));
 
 if (shouldLogToConsole) {
   // Console emits the same structured JSON as the file transports and the Python
