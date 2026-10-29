@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.21.6](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.21.5...v1.21.6) (2026-10-29)
+
+### 🐛 Bug Fixes
+
+* **ai:** never forward the repository key or client system text to the model (OP-263) ([#41](https://github.com/devopsgroupeu/openprime-app-backend/issues/41)) ([68dc981](https://github.com/devopsgroupeu/openprime-app-backend/commit/68dc981b9054e7a1ef1207d02cd91e0ae5f3260a))
+
 ## [1.21.5](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.21.4...v1.21.5) (2026-10-29)
 
 ### 🐛 Bug Fixes
