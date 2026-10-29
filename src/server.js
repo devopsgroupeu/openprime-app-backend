@@ -12,6 +12,7 @@ const { httpMetrics } = require("./middleware/httpMetrics");
 const { logger } = require("./utils/logger");
 const { startMetricsServer } = require("./utils/metrics");
 const routes = require("./routes");
+const { prefetchSigningKeys } = require("./middleware/auth");
 const { sequelize, initializeDatabase, closeConnection } = require("./config/database");
 const { migrateOnStartup } = require("./config/umzug");
 const { startWorker, stopWorker } = require("./services/jobProcessor");
@@ -52,6 +53,10 @@ const PORT = process.env.PORT;
 
 // Trust proxy when running behind ingress/load balancer
 // Use 1 to trust only the immediate proxy (more secure than true)
+// Production is browser → ALB (target-type ip) → pod: exactly one proxy, which
+// appends the address it saw to X-Forwarded-For. req.ip is that last entry;
+// anything the client put before it is ignored. Another proxy in front (e.g.
+// CloudFront) would make this 2.
 app.set("trust proxy", 1);
 
 // RED metrics. First in the chain so rate-limited requests and CORS preflights
@@ -68,10 +73,12 @@ app.use(
   }),
 );
 
-// Rate limiting
+// Rate limiting. Per IP, before authentication: a flood guard, sized for a
+// whole office behind one NAT. Signed-in users have their own, tighter budget
+// (per user, see src/middleware/auth.js).
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  max: 1000, // limit each IP to 1000 requests per windowMs
   message: "Too many requests from this IP, please try again later.",
   // Job status polling (GET /api/jobs/:jobId) is high-frequency (every 2-5s
   // for up to ~5 min). Exempt it from the general bucket; the jobs route has
@@ -83,8 +90,11 @@ app.use("/api/", limiter);
 
 // Body parsing and compression
 app.use(compression());
-app.use(express.json({ limit: "50mb" }));
-app.use(express.urlencoded({ extended: true, limit: "50mb" }));
+// The largest legitimate body is ~120 KiB: an environment with every catalog
+// service enabled and every field filled to a high bound. 1 MB keeps a wide
+// margin (the AI chat resends its history and stays well under it too).
+app.use(express.json({ limit: "1mb" }));
+app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 
 // Request logging with correlation ID
 app.use(requestLogger);
@@ -137,6 +147,11 @@ async function startServer() {
 
     // Apply (dev) or validate (prod) schema migrations before serving traffic
     await migrateOnStartup();
+
+    // Load Keycloak's signing keys before the first request needs them. Not
+    // fatal: a failure is logged and retried on demand (requests answer 503
+    // until the keys are in).
+    await prefetchSigningKeys();
 
     // Prometheus metrics on their own port, in-cluster only
     startMetricsServer({ sequelize });

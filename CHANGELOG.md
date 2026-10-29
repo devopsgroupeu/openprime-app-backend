@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.21.10](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.21.9...v1.21.10) (2026-10-29)
+
+### 🐛 Bug Fixes
+
+* **auth:** refuse deactivated users, harden JWKS and limit requests per user (OP-262) ([#45](https://github.com/devopsgroupeu/openprime-app-backend/issues/45)) ([df64143](https://github.com/devopsgroupeu/openprime-app-backend/commit/df64143a8b874be82e93faa81967abaa74fb7a84))
+
 ## [1.21.9](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.21.8...v1.21.9) (2026-10-29)
 
 ### 🐛 Bug Fixes
