@@ -332,7 +332,16 @@ exports.createTerraformBackend = async (req, res, next) => {
     const result = await statecraftService.createBackendResources(statecraftConfig);
 
     if (!result.success) {
-      req.log.error("Terraform backend creation failed", { error: result.error });
+      req.log.error("Terraform backend creation failed", {
+        error: result.error,
+        status: result.status,
+      });
+      // These carry a message written for the user: bucket name taken or owned by
+      // another environment, invalid name, missing S3 permissions (OP-261). Other
+      // statuses (StateCraft auth, request validation, outages) are ours to fix.
+      if ([400, 403, 409].includes(result.status)) {
+        return res.status(result.status).json({ success: false, error: result.error });
+      }
       return res.status(500).json({
         success: false,
         error: "Failed to create Terraform backend resources",
