@@ -9,7 +9,7 @@ const os = require("node:os");
 const path = require("node:path");
 const AdmZip = require("adm-zip");
 const simpleGit = require("simple-git");
-const { validateGitRepositoryUrl } = require("../validators/gitUrl");
+const { validateGitRepositoryUrl, checkRepositoryAddress } = require("../validators/gitUrl");
 const { parseGenerationFailure, generationError } = require("../utils/generationErrors");
 const { mergeGitRepository } = require("../utils/sshKey");
 const { validateServicesForGeneration } = require("../validators/serviceSchema");
@@ -311,6 +311,10 @@ class EnvironmentService {
       const urlCheck = validateGitRepositoryUrl(git_repository.url);
       if (!urlCheck.valid) {
         throw new Error(`Invalid repository URL: ${urlCheck.reason}`);
+      }
+      const addressCheck = await checkRepositoryAddress(git_repository.url);
+      if (!addressCheck.valid) {
+        throw new Error(`Invalid repository URL: ${addressCheck.reason}`);
       }
 
       const git = simpleGit({ timeout: { block: timeoutMs } }).env({
