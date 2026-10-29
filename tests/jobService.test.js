@@ -390,3 +390,61 @@ describe("jobService outcome persistence", () => {
     expect(updateArgs.next_attempt_at.getTime()).toBeGreaterThan(Date.now());
   });
 });
+
+describe("jobService.enqueue — an idempotency key belongs to the user who sent it", () => {
+  // OP-262 (D30): the key was looked up across all users, so a second user
+  // sending the same key got the first user's jobId and status back. Run
+  // against a store that enforces the where clause, not a stub that answers
+  // any query.
+  let jobs;
+  const matches = (row, where) =>
+    Object.entries(where).every(([key, value]) =>
+      value && typeof value === "object" && Op.in in value
+        ? value[Op.in].includes(row[key])
+        : row[key] === value,
+    );
+
+  beforeEach(() => {
+    jest.resetAllMocks();
+    jobs = [
+      {
+        id: "job-of-a",
+        type: "generate",
+        status: "succeeded",
+        environment_id: "env-a",
+        user_id: "user-a",
+        idempotency_key: "key-123",
+      },
+    ];
+    Job.findOne.mockImplementation(({ where }) =>
+      Promise.resolve(jobs.find((job) => matches(job, where)) || null),
+    );
+    Job.create.mockImplementation((data) => {
+      const job = { id: `job-${jobs.length + 1}`, ...data };
+      jobs.push(job);
+      return Promise.resolve(job);
+    });
+  });
+
+  it("replays the job for the user who first sent the key", async () => {
+    const job = await jobService.enqueue(
+      "generate",
+      { ...mockEnvironment, id: "env-a", user_id: "user-a" },
+      { idempotencyKey: "key-123", userId: "user-a" },
+    );
+
+    expect(job.id).toBe("job-of-a");
+    expect(Job.create).not.toHaveBeenCalled();
+  });
+
+  it("never hands another user's job back for the same key", async () => {
+    const job = await jobService.enqueue(
+      "generate",
+      { ...mockEnvironment, id: "env-b", user_id: "user-b" },
+      { idempotencyKey: "key-123", userId: "user-b" },
+    );
+
+    expect(job.id).not.toBe("job-of-a");
+    expect(job).toMatchObject({ user_id: "user-b", environment_id: "env-b" });
+  });
+});

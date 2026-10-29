@@ -6,7 +6,8 @@
 // SKIP LOCKED; the UI polls GET /api/jobs/:jobId.
 //
 // Concurrency controls:
-//   - idempotency_key UNIQUE  -> replaying a request returns the same job
+//   - (user_id, idempotency_key) UNIQUE -> replaying a request returns the
+//                                same job, and only to the user who sent it
 //   - jobs_active_env_lock    -> one active job per (type, environment_id)
 //   - jobs_active_repo_lock   -> one active push per (repo_url, branch) across
 //                                all environments (concurrent pushes can
@@ -43,10 +44,15 @@ class JobService {
   async enqueue(type, environment, { idempotencyKey = null, userId = null } = {}) {
     const repoUrl = type === "push" ? environment.git_repository?.url || null : null;
     const branch = type === "push" ? environment.git_repository?.branch || "HEAD" : null;
+    const ownerId = userId || environment.user_id || null;
 
-    // 1. Idempotency key replay — same key always returns the same job.
+    // 1. Idempotency key replay — same key always returns the same job, but
+    //    only within one user: a key is client-chosen, so looked up globally
+    //    it handed another user's jobId and status back (OP-262 D30).
     if (idempotencyKey) {
-      const existing = await Job.findOne({ where: { idempotency_key: idempotencyKey } });
+      const existing = await Job.findOne({
+        where: { user_id: ownerId, idempotency_key: idempotencyKey },
+      });
       if (existing) {
         logger.info("Reusing job for idempotency key", {
           jobId: existing.id,
@@ -90,7 +96,7 @@ class JobService {
         type,
         status: "queued",
         environment_id: environment.id,
-        user_id: userId || environment.user_id || null,
+        user_id: ownerId,
         payload,
         idempotency_key: idempotencyKey,
         repo_url: repoUrl,
