@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.21.12](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.21.11...v1.21.12) (2026-10-29)
+
+### 🐛 Bug Fixes
+
+* **deps:** upgrade vulnerable production dependencies, simple-git 4 and adm-zip 0.6 (OP-191) ([#50](https://github.com/devopsgroupeu/openprime-app-backend/issues/50)) ([84f916e](https://github.com/devopsgroupeu/openprime-app-backend/commit/84f916e209d73f5558124bc5c8ac16086a0f9031))
+
 ## [1.21.11](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.21.10...v1.21.11) (2026-10-29)
 
 ### 🐛 Bug Fixes
