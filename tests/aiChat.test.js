@@ -145,6 +145,29 @@ describe("POST /api/ai/chat — what reaches Bedrock", () => {
     expect(sent).not.toContain("git@github.com:acme/infra.git");
   });
 
+  // The shape the allow-listed wizard sends (openprime-app #64): exactly
+  // name/provider/region/services, the whole services map included.
+  it("keeps the context from the wizard's four-key payload and strips a nested key", async () => {
+    const { name, provider, region, services } = wizardValues({ withKey: false });
+    services.vpc.flowLogs = { sshKey: SSH_PRIVATE_KEY };
+    services.eks.helmCharts.loki.sshKey = SSH_PRIVATE_KEY;
+    services.notInCatalog = { enabled: true, sshKey: SSH_PRIVATE_KEY };
+    const values = { name, provider, region, services };
+
+    const res = await chat(frontendBody({ values }));
+
+    expect(res.status).toBe(200);
+    const sent = sentToBedrock();
+    for (const marker of KEY_MARKERS) expect(sent).not.toContain(marker);
+    expect(sent).not.toContain("notInCatalog");
+    const context = lastInput().messages[0].content[0].text;
+    for (const expected of ['"name":"acme-prod"', '"provider":"aws"', '"region":"eu-central-1"']) {
+      expect(context).toContain(expected);
+    }
+    expect(context).toContain('"cidr":"10.0.0.0/16"');
+    expect(context).toContain('"kubernetesVersion":"1.35"');
+  });
+
   it("still gives the model the non-secret environment context, delimited", async () => {
     await chat(frontendBody());
 
