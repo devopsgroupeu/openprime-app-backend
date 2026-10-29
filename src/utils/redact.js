@@ -17,11 +17,14 @@ function isSensitiveKey(key) {
   return SENSITIVE_PATTERN.test(normalized);
 }
 
-// Mask the `user:pass@` segment of any URL in a string, leaving the rest intact.
-const URL_AUTH_RE = /([a-z][a-z0-9+.-]*:\/\/)[^/\s:@]+:[^/\s@]+@/gi;
+// Mask the userinfo of any URL in a string, leaving the rest intact: both
+// `user:pass@` and a bare `token@` (GitHub/GitLab accept a PAT as the username).
+const URL_AUTH_RE = /([a-z][a-z0-9+.-]*:\/\/)[^/\s:@]+(:[^/\s@]+)?@/gi;
 
 function maskUrlAuth(value) {
-  return typeof value === "string" ? value.replace(URL_AUTH_RE, "$1***:***@") : value;
+  return typeof value === "string"
+    ? value.replace(URL_AUTH_RE, (_match, scheme, pass) => `${scheme}***${pass ? ":***" : ""}@`)
+    : value;
 }
 
 // Recursively redact a value: sensitive keys become [REDACTED], strings get URL

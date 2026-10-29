@@ -26,6 +26,8 @@ let cache = { doc: null, etag: null, fetchedAt: 0 };
 function upstreamError(message, cause) {
   const err = new Error(message);
   err.status = 502;
+  // Our own wording, and the one 5xx the UI acts on (retry), so it is sent as-is.
+  err.expose = true;
   err.code = "catalog_unavailable";
   if (cause) err.cause = cause;
   return err;

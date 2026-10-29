@@ -2,6 +2,9 @@ const crypto = require("crypto");
 
 const ALGORITHM = "aes-256-gcm";
 const IV_BYTES = 16;
+// GCM's default tag. Pinned on decrypt because Node 24 otherwise accepts a tag
+// as short as 4 bytes (DEP0182), which cuts a forgery down to a 2^32 guess.
+const AUTH_TAG_BYTES = 16;
 
 // Read the key per call rather than once at module load. This is what makes the
 // round-trip testable: the model used to capture process.env at require() time,
@@ -47,7 +50,9 @@ function decryptCredentials(stored) {
     const authTag = Buffer.from(parts[1], "hex");
     const encryptedText = Buffer.from(parts[2], "hex");
 
-    const decipher = crypto.createDecipheriv(ALGORITHM, getKey(), iv);
+    const decipher = crypto.createDecipheriv(ALGORITHM, getKey(), iv, {
+      authTagLength: AUTH_TAG_BYTES,
+    });
     decipher.setAuthTag(authTag);
 
     let decrypted = decipher.update(encryptedText, "hex", "utf8");
@@ -73,7 +78,7 @@ function decryptCredentials(stored) {
 function looksEncrypted(value) {
   return (
     typeof value === "string" &&
-    new RegExp(`^[0-9a-f]{${IV_BYTES * 2}}:[0-9a-f]{32}:[0-9a-f]*$`).test(value)
+    new RegExp(`^[0-9a-f]{${IV_BYTES * 2}}:[0-9a-f]{${AUTH_TAG_BYTES * 2}}:[0-9a-f]*$`).test(value)
   );
 }
 

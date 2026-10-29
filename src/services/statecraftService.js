@@ -64,9 +64,12 @@ class StateCraftService {
         bucketName: config.bucketName,
         responseData: error.response?.data,
       });
+      // StateCraft's detail is either a string or { message, details }.
+      const detail = error.response?.data?.detail;
       return {
         success: false,
-        error: error.response?.data?.detail || error.message,
+        status: error.response?.status,
+        error: (detail && typeof detail === "object" ? detail.message : detail) || error.message,
       };
     }
   }

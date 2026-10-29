@@ -356,6 +356,12 @@ describe("Metrics", () => {
       }
     }
 
+    // Already in Bedrock's format: streamChat sends what buildChatRequest built.
+    const hi = {
+      system: [{ text: "system" }],
+      messages: [{ role: "user", content: [{ text: "hi" }] }],
+    };
+
     const throttle = () =>
       Object.assign(new Error("Rate exceeded"), { name: "ThrottlingException" });
 
@@ -375,7 +381,7 @@ describe("Metrics", () => {
         .mockResolvedValueOnce({ stream: streamOf("Hello", " world") });
       const onChunk = jest.fn();
 
-      await streamChat({ messages: [{ type: "user", content: "hi" }] }, onChunk);
+      await streamChat(hi, onChunk);
 
       expect(onChunk).toHaveBeenCalledWith("Hello world", { done: true });
       expect(
@@ -398,7 +404,7 @@ describe("Metrics", () => {
         output: { message: { content: [{ text: "fallback" }] } },
       });
 
-      await streamChat({ messages: [{ type: "user", content: "hi" }] }, jest.fn());
+      await streamChat(hi, jest.fn());
 
       expect(
         await valueOf("openprime_bedrock_throttles_total", { operation: "ConverseStream" }),
@@ -418,7 +424,7 @@ describe("Metrics", () => {
 
       jest.useFakeTimers();
       try {
-        const chat = streamChat({ messages: [{ type: "user", content: "hi" }] }, jest.fn());
+        const chat = streamChat(hi, jest.fn());
         await jest.runAllTimersAsync(); // the backoff sleeps between attempts
         await chat;
       } finally {
@@ -448,7 +454,7 @@ describe("Metrics", () => {
       });
       const onChunk = jest.fn();
 
-      await streamChat({ messages: [{ type: "user", content: "hi" }] }, onChunk);
+      await streamChat(hi, onChunk);
 
       expect(onChunk).toHaveBeenCalledWith("fallback", { done: true });
       expect(

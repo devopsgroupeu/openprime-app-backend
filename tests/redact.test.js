@@ -46,6 +46,25 @@ describe("maskUrlAuth", () => {
     );
   });
 
+  // GitHub/GitLab accept a bare token as the userinfo: https://<PAT>@host/...
+  it("masks a token-only userinfo", () => {
+    expect(maskUrlAuth("https://ghp_secretpat@github.com/org/repo.git")).toBe(
+      "https://***@github.com/org/repo.git",
+    );
+  });
+
+  it("masks a token-only userinfo inside a longer message", () => {
+    expect(maskUrlAuth("fatal: unable to access 'https://glpat-abc@gitlab.com/x.git/'")).toBe(
+      "fatal: unable to access 'https://***@gitlab.com/x.git/'",
+    );
+  });
+
+  it("does not treat an @ in the path as userinfo", () => {
+    expect(maskUrlAuth("https://registry.npmjs.org/@scope/pkg")).toBe(
+      "https://registry.npmjs.org/@scope/pkg",
+    );
+  });
+
   it("leaves credential-free URLs and plain strings untouched", () => {
     expect(maskUrlAuth("https://github.com/org/repo.git")).toBe("https://github.com/org/repo.git");
     expect(maskUrlAuth("no url here")).toBe("no url here");
@@ -93,6 +112,12 @@ describe("redact", () => {
   it("masks credential URLs found in string values", () => {
     expect(redact({ remote: "https://u:p@host/repo.git" })).toEqual({
       remote: "https://***:***@host/repo.git",
+    });
+  });
+
+  it("masks token-only URLs found in string values", () => {
+    expect(redact({ remote: "https://ghp_secretpat@github.com/org/repo.git" })).toEqual({
+      remote: "https://***@github.com/org/repo.git",
     });
   });
 

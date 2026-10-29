@@ -2,6 +2,60 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.21.9](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.21.8...v1.21.9) (2026-10-29)
+
+### 🐛 Bug Fixes
+
+* **push:** run git with an explicit minimal environment (OP-258) ([#40](https://github.com/devopsgroupeu/openprime-app-backend/issues/40)) ([f6d3d5c](https://github.com/devopsgroupeu/openprime-app-backend/commit/f6d3d5c96b6a5e77ddd5771d5bedf2ef6a8724fd))
+
+## [1.21.8](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.21.7...v1.21.8) (2026-10-29)
+
+### 🐛 Bug Fixes
+
+* **state-backend:** pass StateCraft's user-facing errors through instead of a generic 500 (OP-261) ([#49](https://github.com/devopsgroupeu/openprime-app-backend/issues/49)) ([50ae4f3](https://github.com/devopsgroupeu/openprime-app-backend/commit/50ae4f39560418bbe4d29c6e7bb9e72605a8aec2))
+
+## [1.21.7](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.21.6...v1.21.7) (2026-10-29)
+
+### 🐛 Bug Fixes
+
+* **chart:** safe defaults and console logging in Kubernetes (OP-270) ([#48](https://github.com/devopsgroupeu/openprime-app-backend/issues/48)) ([fe7ba2d](https://github.com/devopsgroupeu/openprime-app-backend/commit/fe7ba2d34d6ec1624ef0274ecafac304c8c1705e))
+
+## [1.21.6](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.21.5...v1.21.6) (2026-10-29)
+
+### 🐛 Bug Fixes
+
+* **ai:** never forward the repository key or client system text to the model (OP-263) ([#41](https://github.com/devopsgroupeu/openprime-app-backend/issues/41)) ([68dc981](https://github.com/devopsgroupeu/openprime-app-backend/commit/68dc981b9054e7a1ef1207d02cd91e0ae5f3260a))
+
+## [1.21.5](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.21.4...v1.21.5) (2026-10-29)
+
+### 🐛 Bug Fixes
+
+* **push:** refuse a repository host that resolves to loopback or metadata (OP-262) ([#44](https://github.com/devopsgroupeu/openprime-app-backend/issues/44)) ([550e022](https://github.com/devopsgroupeu/openprime-app-backend/commit/550e022f90e9bab5ff213cae765f218b4b8e7689))
+
+## [1.21.4](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.21.3...v1.21.4) (2026-10-29)
+
+### 🐛 Bug Fixes
+
+* **auth:** refuse to start without a client allow-list (OP-260) ([#42](https://github.com/devopsgroupeu/openprime-app-backend/issues/42)) ([f275a82](https://github.com/devopsgroupeu/openprime-app-backend/commit/f275a824c9f8a5a000a9dc512f37183bdf0c48b8))
+
+## [1.21.3](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.21.2...v1.21.3) (2026-10-29)
+
+### 🐛 Bug Fixes
+
+* hide 5xx detail, 404 missing credentials, validate request ids and preferences (OP-271) ([#47](https://github.com/devopsgroupeu/openprime-app-backend/issues/47)) ([cc34392](https://github.com/devopsgroupeu/openprime-app-backend/commit/cc3439271994e0f7634ac45d1eab019b02447ff9))
+
+## [1.21.2](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.21.1...v1.21.2) (2026-10-29)
+
+### 🐛 Bug Fixes
+
+* **validation:** grandfather a legacy global prefix for its own environment (OP-272) ([#39](https://github.com/devopsgroupeu/openprime-app-backend/issues/39)) ([9f0e61b](https://github.com/devopsgroupeu/openprime-app-backend/commit/9f0e61b4d654f1e0068307ce519ec3e64b0d85ef))
+
+## [1.21.1](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.21.0...v1.21.1) (2026-10-29)
+
+### 🐛 Bug Fixes
+
+* **crypto:** require a full 16-byte GCM auth tag on decrypt (OP-271) ([#46](https://github.com/devopsgroupeu/openprime-app-backend/issues/46)) ([33191ea](https://github.com/devopsgroupeu/openprime-app-backend/commit/33191eaed52cded73c68beebfe877abee3ca09ee))
+
 ## [1.21.0](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.20.0...v1.21.0) (2026-10-28)
 
 ### 🚀 Features
