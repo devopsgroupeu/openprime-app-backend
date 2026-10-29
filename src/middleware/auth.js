@@ -71,7 +71,7 @@ async function isDeactivated(keycloakId) {
 // (src/routes/jobs.js). The store is in memory, so the budget is per pod.
 const userLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 300,
+  max: 600,
   keyGenerator: (req) => req.user.id,
   skip: (req) => req.baseUrl === "/api/jobs",
   message: { error: "Too many requests, please try again later." },

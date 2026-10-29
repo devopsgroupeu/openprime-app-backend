@@ -209,7 +209,7 @@ describe("deactivated users (D25)", () => {
 
 describe("per-user limit (D34)", () => {
   // Read from express-rate-limit's X-RateLimit-* headers rather than by spending
-  // 300 requests: what is under test is the budget and its key.
+  // 600 requests: what is under test is the budget and its key.
   const budget = (res) => ({
     limit: Number(res.headers["x-ratelimit-limit"]),
     remaining: Number(res.headers["x-ratelimit-remaining"]),
@@ -222,9 +222,9 @@ describe("per-user limit (D34)", () => {
     const alice2 = budget(await get(token({ sub: "alice" })));
     const bob1 = budget(await get(token({ sub: "bob" })));
 
-    expect(alice1).toEqual({ limit: 300, remaining: 299 });
-    expect(alice2.remaining).toBe(298);
-    expect(bob1.remaining).toBe(299);
+    expect(alice1).toEqual({ limit: 600, remaining: 599 });
+    expect(alice2.remaining).toBe(598);
+    expect(bob1.remaining).toBe(599);
   });
 
   it("leaves job polling to the jobs route's own limiter", async () => {
