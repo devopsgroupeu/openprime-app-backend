@@ -62,6 +62,14 @@ describe("credential decryption rejects anything it cannot authenticate", () => 
     expect(decryptCredentials(`${iv}:${flipped}:${ciphertext}`)).toBeNull();
   });
 
+  // Without an explicit authTagLength, Node 24 (the runtime in the Dockerfile)
+  // accepts a GCM tag as short as 4 bytes, so a forger only has to guess 32 bits.
+  it.each([4, 8, 12, 15])("refuses an auth tag truncated to %i bytes", (bytes) => {
+    const [iv, tag, ciphertext] = encryptCredentials(SECRET).split(":");
+
+    expect(decryptCredentials(`${iv}:${tag.slice(0, bytes * 2)}:${ciphertext}`)).toBeNull();
+  });
+
   it("refuses to decrypt with a different key", () => {
     const stored = encryptCredentials(SECRET);
     const realKey = process.env.CREDENTIALS_ENCRYPTION_KEY;
@@ -84,6 +92,27 @@ describe("credential decryption rejects anything it cannot authenticate", () => 
   it("returns null when nothing is stored", () => {
     expect(decryptCredentials(null)).toBeNull();
     expect(decryptCredentials("")).toBeNull();
+  });
+});
+
+// A value as it is stored today: 16-byte IV, full 16-byte tag. Produced with
+// Python's `cryptography` AESGCM under the tests/setup.js key, not with this
+// module, so a change to both encrypt and decrypt cannot pass unnoticed.
+describe("credentials already stored keep decrypting", () => {
+  const STORED =
+    "000102030405060708090a0b0c0d0e0f:5888829ce54891e1cc4999bd7cf78445:" +
+    "e6499fb8a3d26e777bb1c3ba1852576231fb144bbc04b40f528e5841c2c07401a97ca59d81fee0b158bc4aae6e" +
+    "f1eed660ff6b70a4a382537045807cb555128c1b816558213522d14612d38c9239c95c05946ce84c43bed10bd8" +
+    "085f9dc2b339f8dc57";
+
+  it("decrypts a value encrypted outside this module", () => {
+    expect(decryptCredentials(STORED)).toEqual(SECRET);
+  });
+
+  it("refuses the same value with its tag cut to 4 bytes", () => {
+    const [iv, tag, ciphertext] = STORED.split(":");
+
+    expect(decryptCredentials(`${iv}:${tag.slice(0, 8)}:${ciphertext}`)).toBeNull();
   });
 });
 
