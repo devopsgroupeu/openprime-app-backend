@@ -11,7 +11,7 @@
 const { execFileSync } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
-const simpleGit = require("simple-git");
+const { simpleGit } = require("simple-git");
 
 const REAL_GIT = execFileSync("sh", ["-c", "command -v git"]).toString().trim();
 const ARG_SEPARATOR = "\u001f";
