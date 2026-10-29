@@ -14,6 +14,9 @@
 // What is NOT covered anywhere is the scheme: `file://` and bare local paths
 // clone happily, so those are what this module exists to stop.
 
+const dns = require("node:dns").promises;
+const { BlockList, isIP } = require("node:net");
+
 // [user@]host:path — the scp-like form the wizard asks for
 // (git@github.com:org/repo.git). Rejected if the part before ':' contains a
 // slash, which would make it a local relative path rather than a host.
@@ -26,6 +29,20 @@ const ALLOWED_SCHEMES = new Set(["https:", "ssh:"]);
 // network is a first-class use case for this product.
 const BLOCKED_HOSTS = new Set(["localhost", "127.0.0.1", "0.0.0.0", "::1", "[::1]"]);
 const LINK_LOCAL = /^169\.254\./; // cloud instance metadata
+
+// The same, as address ranges: what an IP literal or a resolved name must not
+// be (OP-262 D27). 0.0.0.0/8 and :: reach this host on Linux; fd00:ec2::254 is
+// the AWS IPv6 metadata endpoint, the one address blocked inside the otherwise
+// allowed private fc00::/7. IPv4-mapped IPv6 (::ffff:127.0.0.1) matches the
+// IPv4 rules.
+const BLOCKED_ADDRESSES = new BlockList();
+BLOCKED_ADDRESSES.addSubnet("0.0.0.0", 8, "ipv4");
+BLOCKED_ADDRESSES.addSubnet("127.0.0.0", 8, "ipv4");
+BLOCKED_ADDRESSES.addSubnet("169.254.0.0", 16, "ipv4");
+BLOCKED_ADDRESSES.addAddress("::", "ipv6");
+BLOCKED_ADDRESSES.addAddress("::1", "ipv6");
+BLOCKED_ADDRESSES.addSubnet("fe80::", 10, "ipv6");
+BLOCKED_ADDRESSES.addAddress("fd00:ec2::254", "ipv6");
 
 function reject(reason) {
   return { valid: false, reason };
@@ -94,7 +111,53 @@ function validateGitRepositoryUrl(url) {
 
 function isBlockedHost(hostname) {
   const host = hostname.toLowerCase();
-  return BLOCKED_HOSTS.has(host) || LINK_LOCAL.test(host);
+  return BLOCKED_HOSTS.has(host) || LINK_LOCAL.test(host) || isBlockedAddress(unbracket(host));
 }
 
-module.exports = { validateGitRepositoryUrl };
+function isBlockedAddress(address) {
+  const family = isIP(address);
+  return family !== 0 && BLOCKED_ADDRESSES.check(address, family === 6 ? "ipv6" : "ipv4");
+}
+
+const unbracket = (host) => host.replace(/^\[(.*)\]$/, "$1");
+
+/**
+ * The host of a URL validateGitRepositoryUrl has accepted, without the
+ * brackets around an IPv6 literal.
+ */
+function repositoryHost(url) {
+  const value = url.trim();
+  if (SCP_LIKE.test(value)) {
+    return value.slice(value.indexOf("@") + 1, value.indexOf(":"));
+  }
+  return unbracket(new URL(value).hostname);
+}
+
+/**
+ * validateGitRepositoryUrl judges the URL as written; this judges where it
+ * points, right before git connects (OP-262 D27). It catches a numeric form
+ * the resolver reads as loopback (git@127.1:, 2130706433) and a name that
+ * resolves to loopback or metadata (metadata.google.internal on GCP). A name
+ * that does not resolve is left to git, which fails on it anyway.
+ *
+ * Not covered: a DNS server that answers git differently a moment later
+ * (rebinding). Closing that needs egress restricted at the network level.
+ *
+ * @param {string} url  a URL validateGitRepositoryUrl has accepted
+ * @returns {Promise<{valid: boolean, reason?: string}>}
+ */
+async function checkRepositoryAddress(url) {
+  const host = repositoryHost(url);
+  let addresses;
+  try {
+    addresses = await dns.lookup(host, { all: true, verbatim: true });
+  } catch {
+    return { valid: true };
+  }
+  const blocked = addresses.find(({ address }) => isBlockedAddress(address));
+  return blocked
+    ? reject(`Repository host '${host}' resolves to ${blocked.address}, which is not allowed`)
+    : { valid: true };
+}
+
+module.exports = { validateGitRepositoryUrl, checkRepositoryAddress };
