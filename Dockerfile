@@ -1,5 +1,5 @@
 # Multi-stage Dockerfile for OpenPrime Backend
-FROM node:24.5.0-alpine AS builder
+FROM node:26.12.1-alpine AS builder
 
 # Install build dependencies
 WORKDIR /app
@@ -14,7 +14,7 @@ RUN npm ci --include=dev
 COPY src/ ./src/
 
 # Production stage
-FROM node:24.5.0-alpine AS production
+FROM node:26.12.1-alpine AS production
 
 # Create user and group
 RUN addgroup -g 1001 -S nodejs \
