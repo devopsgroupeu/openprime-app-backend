@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.21.8](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.21.7...v1.21.8) (2026-10-29)
+
+### 🐛 Bug Fixes
+
+* **state-backend:** pass StateCraft's user-facing errors through instead of a generic 500 (OP-261) ([#49](https://github.com/devopsgroupeu/openprime-app-backend/issues/49)) ([50ae4f3](https://github.com/devopsgroupeu/openprime-app-backend/commit/50ae4f39560418bbe4d29c6e7bb9e72605a8aec2))
+
 ## [1.21.7](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.21.6...v1.21.7) (2026-10-29)
 
 ### 🐛 Bug Fixes
