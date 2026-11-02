@@ -32,13 +32,15 @@ describe.each([
   ["synchronous generate", generate],
   ["job artifact download", downloadJob],
 ])("%s filename", (_label, send) => {
-  it("quotes a plain name", async () => {
+  it("names a plain file", async () => {
     const res = await send("prod");
 
     expect(res.status).toBe(200);
     expect(res.headers["content-type"]).toBe("application/zip");
-    expect(res.headers["content-disposition"]).toBe(
-      'attachment; filename="prod-infrastructure.zip"',
+    // RFC 6266 allows a bare token or a quoted string here. content-disposition 2
+    // (express 5.3) sends the token, earlier versions quoted it.
+    expect(res.headers["content-disposition"]).toMatch(
+      /^attachment; filename=("?)prod-infrastructure\.zip\1$/,
     );
   });
 
