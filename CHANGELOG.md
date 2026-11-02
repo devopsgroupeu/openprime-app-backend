@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.21.14](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.21.13...v1.21.14) (2026-11-02)
+
+### 🏗️ Build System
+
+* **deps:** bump dotenv from 17.3.1 to 18.0.9 ([#60](https://github.com/devopsgroupeu/openprime-app-backend/issues/60)) ([52b88b7](https://github.com/devopsgroupeu/openprime-app-backend/commit/52b88b726f2530deeccd7ce189a29efa418982f0))
+
 ## [1.21.13](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.21.12...v1.21.13) (2026-11-02)
 
 ### 🏗️ Build System
