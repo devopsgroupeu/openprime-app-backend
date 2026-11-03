@@ -43,8 +43,8 @@
     "winston": "^3.19.0"
   },
   "devDependencies": {
-    "@commitlint/cli": "^20.4.2",
-    "@commitlint/config-conventional": "^20.4.2",
+    "@commitlint/cli": "^20.5.3",
+    "@commitlint/config-conventional": "^20.5.3",
     "@eslint/js": "^10.0.1",
     "@eslint/json": "^1.0.1",
     "@semantic-release/changelog": "^7.0.0",
@@ -55,7 +55,7 @@
     "@semantic-release/release-notes-generator": "^14.1.1",
     "commitizen": "^4.3.2",
     "cz-conventional-changelog": "^3.3.0",
-    "eslint": "^10.13.0",
+    "eslint": "^10.14.0",
     "globals": "^17.13.0",
     "jest": "^30.5.2",
     "jest-environment-node": "^30.2.0",
