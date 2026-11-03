@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.21.16](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.21.15...v1.21.16) (2026-11-03)
+
+### 🏗️ Build System
+
+* **deps:** bump js-yaml from 4.3.2 to 5.5.0 ([#71](https://github.com/devopsgroupeu/openprime-app-backend/issues/71)) ([e61e299](https://github.com/devopsgroupeu/openprime-app-backend/commit/e61e299ade002a41fbd00044c34dcbb38ab4f491))
+
 ## [1.21.15](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.21.14...v1.21.15) (2026-11-03)
 
 ### 🏗️ Build System
