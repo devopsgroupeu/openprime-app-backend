@@ -86,7 +86,6 @@ jest.mock("../src/services/environmentService", () => ({
   getEnvironmentByIdAndUser: jest.fn().mockResolvedValue(null),
   updateEnvironmentByUser: jest.fn().mockResolvedValue(null),
   deleteEnvironmentByUser: jest.fn().mockResolvedValue(true),
-  convertToYAML: jest.fn().mockResolvedValue("test: yaml"),
   // Synchronous generate/push path (backward-compatibility shim): the old
   // frontend omits X-Async-Jobs, so the controller streams the ZIP / pushes
   // inline. These mocks keep the sync path hermetic in tests.

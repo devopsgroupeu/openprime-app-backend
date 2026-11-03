@@ -1,5 +1,4 @@
 // src/services/environmentService.js
-const yaml = require("js-yaml");
 const axios = require("axios");
 const { logger } = require("../utils/logger");
 const { getRequestId } = require("../utils/requestContext");
@@ -233,14 +232,6 @@ class EnvironmentService {
       logger.error("Failed to delete environment", { error: error.message, environmentId, userId });
       throw error;
     }
-  }
-
-  async convertToYAML(data) {
-    return yaml.dump(data, {
-      indent: 2,
-      lineWidth: -1,
-      noRefs: true,
-    });
   }
 
   async generateInfrastructure(environment) {
