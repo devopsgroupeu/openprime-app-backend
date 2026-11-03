@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.21.18](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.21.17...v1.21.18) (2026-11-03)
+
+### ♻️ Code Refactoring
+
+* **environments:** drop the YAML conversion that only fed a debug log ([#73](https://github.com/devopsgroupeu/openprime-app-backend/issues/73)) ([87a8cd4](https://github.com/devopsgroupeu/openprime-app-backend/commit/87a8cd4872e84a14183dce7e7aee2ad883f27fad))
+
 ## [1.21.17](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.21.16...v1.21.17) (2026-11-03)
 
 ### 🏗️ Build System
