@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.21.17](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.21.16...v1.21.17) (2026-11-03)
+
+### 🏗️ Build System
+
+* **deps:** bump node from 24.5.0-alpine to 26.13.0-alpine ([#67](https://github.com/devopsgroupeu/openprime-app-backend/issues/67)) ([8292757](https://github.com/devopsgroupeu/openprime-app-backend/commit/82927578aa8c8c770cb1d19f20999e6479db8458))
+
 ## [1.21.16](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.21.15...v1.21.16) (2026-11-03)
 
 ### 🏗️ Build System
