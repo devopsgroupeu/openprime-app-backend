@@ -173,22 +173,10 @@ names and labels match Injecto and StateCraft, so one query works across all thr
 
 ### Grafana dashboards
 
-The chart ships three dashboards in `chart/dashboards/`, deployed as ConfigMaps that the Grafana
-sidecar of kube-prometheus-stack loads by label (`grafanaDashboards.enabled`, on by default):
-
-- **OpenPrime / Overview** - rate, 5xx ratio and p95 latency for the API, Injecto and
-  StateCraft; users & activity (new and active users, environments created/updated/deleted,
-  credentials added, generate/push requests), counted from the backend's logs in Loki;
-  restarts, replicas and error logs
-- **OpenPrime / Backend API** - per-route table, latency percentiles, DB pool saturation,
-  Node.js runtime, HPA headroom and memory against limit
-- **OpenPrime / Jobs & AI** - generate/push outcomes and durations, jobs in flight and expired,
-  Bedrock calls, latency and throttles
-
-Edit a dashboard in Grafana, export it as JSON and replace the file; the sidecar reloads it
-without restarting Grafana. The queries rely on the `service`, `endpoint`, `pod` and `container`
-labels the Prometheus Operator adds to scraped series, and on kube-state-metrics; on a managed
-Prometheus that labels targets differently (e.g. GKE Managed Prometheus) they need adapting.
+The OpenPrime dashboards (Overview, Backend API, Jobs & AI) are not part of this chart: they are
+provisioned by the observability stack, as code in the argocd-apps repository
+(`dashboards/openprime`, deployed by the `openprime-dashboards` Application). They query the
+metrics listed above, so a change to a metric name or label needs a matching dashboard change there.
 
 ## Project Structure
 
