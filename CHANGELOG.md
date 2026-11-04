@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.21.20](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.21.19...v1.21.20) (2026-11-04)
+
+### ♻️ Code Refactoring
+
+* **chart:** move grafana dashboards to argocd-apps (OP-176) ([#75](https://github.com/devopsgroupeu/openprime-app-backend/issues/75)) ([4afd317](https://github.com/devopsgroupeu/openprime-app-backend/commit/4afd3178d6839c4bf9fbc71ad77f40189e8597d6))
+
 ## [1.21.19](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.21.18...v1.21.19) (2026-11-04)
 
 ### 🐛 Bug Fixes
