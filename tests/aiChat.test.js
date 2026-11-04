@@ -300,6 +300,95 @@ describe("POST /api/ai/chat — what reaches Bedrock", () => {
   });
 });
 
+// The bodies the other two chat components send, copied from openprime-app@b700f7a
+// rather than written in this file's vocabulary: both label the model's turns
+// "bot" and open with a "bot" greeting. A suite that only ever sent "assistant"
+// passed while every message from these two components was rejected.
+const AURA_INTRO = [
+  {
+    id: 1,
+    type: "bot",
+    message: "Hi there! 👋 I'm Aura, your AI assistant for OpenPrime.",
+    timestamp: "2026-11-04T09:07:00.000Z",
+  },
+  {
+    id: 2,
+    type: "bot",
+    message: "What would you like to know? You can ask me about:\n• Kubernetes and Helm charts",
+    timestamp: "2026-11-04T09:07:00.000Z",
+  },
+];
+const userTurn = (message) => ({
+  id: 3,
+  type: "user",
+  message,
+  timestamp: "2026-11-04T09:07:10.000Z",
+});
+
+describe("POST /api/ai/chat — the bodies the frontend's chat components send", () => {
+  // src/components/AuraChatWindow.jsx: INITIAL_MESSAGES, then { messages: [...messages, userMessage] }
+  it("answers AuraChatWindow's first question, after its two greetings", async () => {
+    const res = await chat({ messages: [...AURA_INTRO, userTurn("How do I size EKS nodes?")] });
+
+    expect(res.status).toBe(200);
+    expect(mockSend).toHaveBeenCalledTimes(1);
+    const roles = lastInput().messages.map((m) => m.role);
+    expect(roles).toEqual(["user", "assistant", "user"]);
+    expect(lastInput().messages.at(-1).content.at(-1).text).toBe("How do I size EKS nodes?");
+  });
+
+  it("answers AuraChatWindow's follow-up, with the model's own answer in the history", async () => {
+    const res = await chat({
+      messages: [
+        ...AURA_INTRO,
+        userTurn("How do I size EKS nodes?"),
+        {
+          id: 4,
+          type: "bot",
+          message: "Start with two m7g.large.",
+          timestamp: "2026-11-04T09:07:12.000Z",
+        },
+        userTurn("And for production?"),
+      ],
+    });
+
+    expect(res.status).toBe(200);
+    expect(lastInput().messages.map((m) => m.role)).toEqual([
+      "user",
+      "assistant",
+      "user",
+      "assistant",
+      "user",
+    ]);
+  });
+
+  // src/components/WizardAssistant.jsx: INTRO, then { messages: [...messages, userMsg], context }
+  it("answers WizardAssistant's first question, after its greeting", async () => {
+    const res = await chat({
+      messages: [
+        {
+          id: 1,
+          type: "bot",
+          message: "Hi! I'm Aura 👋 Ask me anything while you configure this environment.",
+          timestamp: "2026-11-04T09:07:00.000Z",
+        },
+        userTurn("Which region should I pick?"),
+      ],
+      context: { step: 2 },
+    });
+
+    expect(res.status).toBe(200);
+    expect(lastInput().messages.map((m) => m.role)).toEqual(["user", "assistant", "user"]);
+  });
+
+  it("still rejects a role no component sends", async () => {
+    const res = await chat({ messages: [{ type: "model", message: "x" }, userTurn("Hi")] });
+
+    expect(res.status).toBe(400);
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+});
+
 describe("POST /api/ai/chat — client disconnect", () => {
   async function waitFor(check, timeoutMs = 2000) {
     const deadline = Date.now() + timeoutMs;

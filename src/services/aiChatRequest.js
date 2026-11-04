@@ -36,6 +36,9 @@ const SECRET_NAME = /pass|secret|token|private|credential|key|cert|ssh/i;
 // one unbroken base64 run (an AWS secret access key is 40 characters).
 const SECRET_VALUE = /PRIVATE KEY|\b(?:AKIA|ASIA)[0-9A-Z]{16}\b|^[A-Za-z0-9+/=]{40,}$/;
 const CHART_NAME = /^[A-Za-z0-9_-]{1,64}$/;
+// What the chat components call the model's turns: AuraChatWindow and
+// WizardAssistant say "bot", AIChatModal's state says "ai".
+const ROLE_ALIASES = { bot: "assistant", ai: "assistant" };
 
 function badRequest(message) {
   const err = new Error(message);
@@ -54,7 +57,7 @@ function toTurns(messages) {
 
   const turns = [];
   for (const message of messages) {
-    const role = message?.type;
+    const role = ROLE_ALIASES[message?.type] ?? message?.type;
     // Today's wizard still sends its context as "system" messages. They are
     // dropped rather than rejected so the deployed frontend keeps working;
     // what they carried is rebuilt server-side below.
