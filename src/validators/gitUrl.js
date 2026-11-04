@@ -5,12 +5,14 @@
 // address: the scheme selects a *transport*, and some transports read local
 // files or run commands. See OP-175.
 //
-// Two of the vectors the audit listed are already covered by the stack and are
+// One vector the audit listed is already covered by the stack and is
 // deliberately NOT re-implemented here:
 //   - `ext::sh -c ...` transport injection — git refuses `ext` unless explicitly
 //     allowed (default since 2.12); verified against the git in the runtime image.
-//   - a leading `-` parsed as a git option — simple-git rejects it itself
-//     ("potential exploit argument blocked"); verified against the pinned version.
+// A leading `-`, which git could read as an option, is rejected below. Behind
+// that check, simple-git 4 hands such a URL to `git clone` as the repository,
+// not as an option: git answers "repository '-u...' does not exist" and runs
+// nothing (measured 2026-11-04). simple-git does not reject it itself.
 // What is NOT covered anywhere is the scheme: `file://` and bare local paths
 // clone happily, so those are what this module exists to stop.
 
