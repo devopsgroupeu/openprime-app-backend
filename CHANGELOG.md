@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.21.19](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.21.18...v1.21.19) (2026-11-04)
+
+### 🐛 Bug Fixes
+
+* **ai:** accept the chat components' bot and ai turns as assistant (OP-263) ([#74](https://github.com/devopsgroupeu/openprime-app-backend/issues/74)) ([098d0dc](https://github.com/devopsgroupeu/openprime-app-backend/commit/098d0dcae5039b7ff59017a7981809d1389b08a9))
+
 ## [1.21.18](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.21.17...v1.21.18) (2026-11-03)
 
 ### ♻️ Code Refactoring
