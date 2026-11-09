@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.21.21](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.21.20...v1.21.21) (2026-11-09)
+
+### 🐛 Bug Fixes
+
+* **validation:** enforce credential and profile validators, validate the git branch, run as the image's node user (OP-271) ([#81](https://github.com/devopsgroupeu/openprime-app-backend/issues/81)) ([c0a7d81](https://github.com/devopsgroupeu/openprime-app-backend/commit/c0a7d81e30dab75035006fdfe6a26ed323389075))
+
 ## [1.21.20](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.21.19...v1.21.20) (2026-11-04)
 
 ### 📚 Documentation
