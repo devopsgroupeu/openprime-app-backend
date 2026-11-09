@@ -5,7 +5,7 @@ const request = require("supertest");
 const app = require("../src/server");
 const { CloudCredential } = require("../src/models");
 
-const MISSING_ID = "11111111-1111-1111-1111-111111111111";
+const MISSING_ID = "11111111-1111-4111-8111-111111111111";
 
 describe("cloud credential not found", () => {
   beforeEach(() => {

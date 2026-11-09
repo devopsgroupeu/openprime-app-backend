@@ -1,6 +1,7 @@
 // src/validators/environmentValidator.js
 const { body } = require("express-validator");
 const { validateGitRepositoryUrl } = require("./gitUrl");
+const { isValidBranchName } = require("./gitBranch");
 const { Environment } = require("../models");
 const userService = require("../services/userService");
 const { validateServices } = require("./serviceSchema");
@@ -110,6 +111,18 @@ exports.validateEnvironment = [
       const { valid, reason } = validateGitRepositoryUrl(value);
       if (!valid) {
         throw new Error(reason);
+      }
+      return true;
+    }),
+
+  // Empty means "the repository's default", so only a given name is checked.
+  body("gitRepository.branch")
+    .optional({ values: "falsy" })
+    .custom((value) => {
+      if (!isValidBranchName(value)) {
+        throw new Error(
+          "Git branch name is not valid: use a name git accepts, for example main or feature/infra",
+        );
       }
       return true;
     }),
