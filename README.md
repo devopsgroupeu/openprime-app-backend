@@ -88,6 +88,9 @@ Every response carries an `X-Request-ID`. A client may send its own (letters, di
 - `GET /api/environments/:id` - Get one environment
 - `POST /api/environments` - Create an environment
 - `PUT /api/environments/:id` - Update it. `name` and `globalPrefix` are immutable and a differing value is rejected with 400
+
+`gitRepository.branch` must be a name git itself accepts (`git check-ref-format --branch`: no leading `-`, no `..`, spaces or `~^:?*[\`, no component starting with `.` or ending in `.lock`, not `HEAD`); an empty branch means the repository's default.
+
 - `DELETE /api/environments/:id` - Delete it
 - `POST /api/environments/:id/generate` - Start a generation job
 - `POST /api/environments/:id/push` - Push the generated repository to the customer's Git
@@ -119,12 +122,12 @@ was unreachable.
 - `DELETE /api/cloud-credentials/:credentialId` - Delete one
 - `PUT /api/cloud-credentials/:credentialId/default` - Mark as the account default
 
-Secrets are AES-256-GCM encrypted at rest and redacted from every response.
+Secrets are AES-256-GCM encrypted at rest and redacted from every response. Invalid input (an unknown provider, an empty name or identifier, `credentials` that is not an object, a non-boolean `isDefault`, or a `:credentialId` that is not a UUID) answers 400 `{ "errors": [...] }` before anything is read or written.
 
 ### Users
 
 - `GET /api/users/me` - Current user
-- `PUT /api/users/me` - Update current user
+- `PUT /api/users/me/profile` - Update `firstName`, `lastName` (each at most 100 characters) and `email` (must be a valid address). An empty value is accepted, since the settings page always sends all three; an invalid one is a 400
 - `GET /api/users/me/preferences` - Get preferences
 - `PUT /api/users/me/preferences` - Update preferences. Only `theme`, `notifications`, `defaultProvider`, `defaultRegion` and `gitIntegration.platform`/`gitIntegration.orgUrl` are stored; other fields are ignored and an invalid value is a 400
 - `GET /api/users` - List all users (**admin only**)

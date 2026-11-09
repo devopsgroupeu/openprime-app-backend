@@ -16,7 +16,7 @@ const app = require("../src/server");
 const cloudCredentialService = require("../src/services/cloudCredentialService");
 const { validateAwsCredentials } = require("../src/services/credentialValidationService");
 
-const CREDENTIAL_ID = "11111111-1111-1111-1111-111111111111";
+const CREDENTIAL_ID = "11111111-1111-4111-8111-111111111111";
 
 describe("POST /api/cloud-credentials/:credentialId/test", () => {
   beforeEach(() => {

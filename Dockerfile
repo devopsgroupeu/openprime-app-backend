@@ -16,10 +16,6 @@ COPY src/ ./src/
 # Production stage
 FROM node:26.13.0-alpine AS production
 
-# Create user and group
-RUN addgroup -g 1001 -S nodejs \
-    && adduser -S nodejs -u 1001
-
 WORKDIR /app
 
 # Copy package files
@@ -34,10 +30,11 @@ COPY --from=builder /app/src ./src
 
 # Create directories with proper permissions
 RUN mkdir -p logs uploads/helm \
-    && chown -R nodejs:nodejs /app
+    && chown -R node:node /app
 
-# Switch to non-root user
-USER nodejs
+# Run as the base image's own `node` user (uid/gid 1000), the uid the chart's
+# securityContext sets; a separate uid here left /app unwritable at runtime.
+USER node
 
 # Expose port
 EXPOSE 3001
