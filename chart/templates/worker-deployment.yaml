@@ -79,7 +79,8 @@ spec:
             claimName: {{ include "openprime-app-backend.fullname" . }}-uploads
         {{- end }}
         - name: tmp
-          emptyDir: {}
+          emptyDir:
+            {{- toYaml (.Values.tmpDir | default dict) | nindent 12 }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

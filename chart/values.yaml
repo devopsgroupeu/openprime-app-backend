@@ -251,6 +251,15 @@ migrations:
       memory: 128Mi
 
 # Persistent volumes
+# The emptyDir mounted at /tmp in the API and the worker: each push clones the
+# customer repository there (shallow, single branch) and extracts the generated
+# files over it, then removes the directory. With sizeLimit the kubelet evicts
+# the pod when it outgrows the limit, instead of one oversized repository
+# filling the node's disk (OP-262 D81). Raise it for very large repositories;
+# `sizeLimit: null` removes the limit.
+tmpDir:
+  sizeLimit: 1Gi
+
 persistence:
   enabled: true
   # Storage for uploads. ReadWriteOnce: generated ZIPs are stored in the DB
