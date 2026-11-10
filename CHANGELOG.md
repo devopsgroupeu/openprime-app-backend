@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.21.22](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.21.21...v1.21.22) (2026-11-10)
+
+### 🐛 Bug Fixes
+
+* **chart:** bound the /tmp emptyDir of the API and worker (OP-262) ([#82](https://github.com/devopsgroupeu/openprime-app-backend/issues/82)) ([189a2e8](https://github.com/devopsgroupeu/openprime-app-backend/commit/189a2e865415d8d7fac6472828a5bc23337aa8f1))
+* **push:** pin the github.com and gitlab.com host keys (OP-258) ([#83](https://github.com/devopsgroupeu/openprime-app-backend/issues/83)) ([146b0f4](https://github.com/devopsgroupeu/openprime-app-backend/commit/146b0f4a4091a0c4a318d4cee598a2d4e1b6ea91))
+
 ## [1.21.21](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.21.20...v1.21.21) (2026-11-09)
 
 ### 🐛 Bug Fixes
