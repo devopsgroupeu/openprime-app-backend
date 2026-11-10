@@ -50,12 +50,18 @@ async function createFakeSshRemote(root, { empty = false } = {}) {
   const binDir = path.join(root, "bin");
   const sshEnvFile = path.join(root, "ssh-env.txt");
   const gitArgsFile = path.join(root, "git-args.txt");
+  const knownHostsSnapshot = path.join(root, "known-hosts-at-ssh.txt");
   fs.mkdirSync(binDir);
   fs.writeFileSync(
     path.join(binDir, "ssh"),
     [
       "#!/bin/sh",
       `env > "${sshEnvFile}"`,
+      // Snapshot the known_hosts file ssh was pointed at, as it is when ssh
+      // starts: the push's temp dir is gone by the time a test can look.
+      `rm -f "${knownHostsSnapshot}"`,
+      'for a; do case "$a" in UserKnownHostsFile=*) kh="${a#UserKnownHostsFile=}";; esac; done',
+      `[ -n "$kh" ] && [ -f "$kh" ] && cp "$kh" "${knownHostsSnapshot}"`,
       // The last argument is the remote command, e.g. git-upload-pack 'org/repo.git'.
       "for last; do :; done",
       `cd "${path.join(root, "remotes")}" && exec sh -c "'${REAL_GIT}' \${last#git-}"`,
@@ -88,6 +94,10 @@ async function createFakeSshRemote(root, { empty = false } = {}) {
           .filter((line) => line.includes("="))
           .map((line) => [line.slice(0, line.indexOf("=")), line.slice(line.indexOf("=") + 1)]),
       );
+    },
+    /** The known_hosts file ssh was given, as it was when ssh started, or null. */
+    readKnownHostsAtSsh() {
+      return fs.existsSync(knownHostsSnapshot) ? fs.readFileSync(knownHostsSnapshot, "utf8") : null;
     },
     /** Every git invocation since binDir went on PATH, as arrays of arguments. */
     readGitInvocations() {

@@ -91,6 +91,8 @@ Every response carries an `X-Request-ID`. A client may send its own (letters, di
 
 `gitRepository.branch` must be a name git itself accepts (`git check-ref-format --branch`: no leading `-`, no `..`, spaces or `~^:?*[\`, no component starting with `.` or ending in `.lock`, not `HEAD`); an empty branch means the repository's default.
 
+A push connects over SSH with `StrictHostKeyChecking=accept-new` and a `known_hosts` that already holds the published host keys of github.com and gitlab.com (`src/config/pinnedHostKeys.js`), so a changed key for those hosts is refused. Any other host, e.g. a self-hosted GitLab, is trusted on first use for that push only. When a provider rotates its keys, update that file.
+
 - `DELETE /api/environments/:id` - Delete it
 - `POST /api/environments/:id/generate` - Start a generation job
 - `POST /api/environments/:id/push` - Push the generated repository to the customer's Git

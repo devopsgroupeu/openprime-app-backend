@@ -9,6 +9,7 @@ const path = require("node:path");
 const AdmZip = require("adm-zip");
 const { simpleGit } = require("simple-git");
 const { validateGitRepositoryUrl, checkRepositoryAddress } = require("../validators/gitUrl");
+const { PINNED_KNOWN_HOSTS } = require("../config/pinnedHostKeys");
 const { parseGenerationFailure, generationError } = require("../utils/generationErrors");
 const { mergeGitRepository } = require("../utils/sshKey");
 const { validateServicesForGeneration } = require("../validators/serviceSchema");
@@ -334,6 +335,11 @@ class EnvironmentService {
       // git key refactor
       const sshKey = git_repository.sshKey.replace(/\\n/g, "\n").trim() + "\n";
       await fs.promises.writeFile(keyDir, sshKey, { mode: 0o600 });
+      // github.com and gitlab.com are checked against their published keys
+      // from the first connection on; see GIT_SSH_COMMAND below (OP-258).
+      await fs.promises.writeFile(knownHostsFile, `${PINNED_KNOWN_HOSTS.join("\n")}\n`, {
+        mode: 0o600,
+      });
 
       // Validated again at the point of use, not only at the API boundary: an
       // environment stored before the validator existed still reaches this line.
@@ -371,10 +377,11 @@ class EnvironmentService {
         HOME: tempDir,
         // Never wait for a human: fail instead of prompting for credentials.
         GIT_TERMINAL_PROMPT: "0",
-        // accept-new trusts a host we have never seen and pins it for the rest
-        // of this push; `no` would also accept a *changed* key, which is the
-        // shape of a man-in-the-middle. The known_hosts file lives in the temp
-        // dir and dies with it, so this is per-push trust-on-first-use.
+        // accept-new refuses a host whose key differs from known_hosts, which
+        // starts with the pinned github.com and gitlab.com keys, and trusts any
+        // other host on first use, for the rest of this push only (the file
+        // dies with the temp dir). `no` would also accept a *changed* key,
+        // which is the shape of a man-in-the-middle.
         GIT_SSH_COMMAND: `ssh -i ${keyDir} -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=${knownHostsFile}`,
         // Defence in depth behind the validator: even if a URL slips through,
         // git itself will refuse any transport outside this list — including
