@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.21.23](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.21.22...v1.21.23) (2026-11-13)
+
+### 🏗️ Build System
+
+* **deps:** bump the npm-production group with 4 updates ([#84](https://github.com/devopsgroupeu/openprime-app-backend/issues/84)) ([0089f92](https://github.com/devopsgroupeu/openprime-app-backend/commit/0089f92466d39bdd897afac1e7819a6744f9c9bb))
+
 ## [1.21.22](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.21.21...v1.21.22) (2026-11-10)
 
 ### 🐛 Bug Fixes
