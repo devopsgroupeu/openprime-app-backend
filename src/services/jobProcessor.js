@@ -27,10 +27,21 @@ const MAX_CONCURRENT_GENERATE = parseInt(process.env.MAX_CONCURRENT_GENERATE || 
 const MAX_CONCURRENT_PUSH = parseInt(process.env.MAX_CONCURRENT_PUSH || "1", 10);
 const JOB_DEADLINE_MS = parseInt(process.env.JOB_DEADLINE_MS || "600000", 10);
 const DRAIN_TIMEOUT_MS = parseInt(process.env.JOB_DRAIN_TIMEOUT_MS || "30000", 10);
+// Wait before the first claim, so Prometheus scrapes the job series created at
+// zero (startWorker) before the first job moves them. A job that finished
+// before the new pod's first scrape would be lost to increase() and the
+// duration panels, and pods are replaced every few hours, often with a job
+// waiting. 45 s covers the chart's 30 s scrape interval plus discovering the
+// new pod. No wait when metrics are off: nothing would be lost.
+const START_DELAY_MS =
+  process.env.METRICS_ENABLED === "false"
+    ? 0
+    : parseInt(process.env.JOB_START_DELAY_MS || "45000", 10);
 
 let stopping = false;
 let loopPromise = null;
 let expiryTimer = null;
+let cancelStartDelay = null;
 const inFlight = new Set();
 const runningCount = { total: 0, generate: 0, push: 0 };
 
@@ -143,7 +154,21 @@ async function executeJob(job) {
   }
 }
 
+// START_DELAY_MS, cut short by stopWorker.
+function startDelay() {
+  if (START_DELAY_MS <= 0) return Promise.resolve();
+  return new Promise((resolve) => {
+    const timer = setTimeout(resolve, START_DELAY_MS);
+    cancelStartDelay = () => {
+      clearTimeout(timer);
+      resolve();
+    };
+  });
+}
+
 async function workerLoop() {
+  await startDelay();
+  cancelStartDelay = null;
   while (!stopping) {
     try {
       // Per-type concurrency caps protect Injecto/StateCraft/Bedrock from
@@ -184,11 +209,14 @@ async function startWorker() {
   if (loopPromise) return;
   // Create every job series at zero, so the first job after a restart is
   // visible to increase()/rate() and a success-rate query never divides by a
-  // series that does not exist yet.
+  // series that does not exist yet. The duration histogram too: otherwise its
+  // series start with the first job, already at 1, and the duration panels
+  // stay empty for every first job (pods are replaced every few hours).
   for (const type of ["generate", "push"]) {
     jobsInFlight.set({ type }, 0);
     for (const outcome of ["succeeded", "retried", "failed"]) {
       jobsTotal.inc({ type, outcome }, 0);
+      jobDurationSeconds.zero({ type, outcome });
     }
   }
   // Startup recovery sweep: reclaim jobs a prior (now-dead) worker left
@@ -201,6 +229,7 @@ async function startWorker() {
     logger.warn("Reclaimed stale jobs left by a dead worker", { recovered });
   }
   logger.info("Job worker started", {
+    startDelayMs: START_DELAY_MS,
     pollIntervalMs: POLL_INTERVAL_MS,
     maxConcurrentJobs: MAX_CONCURRENT_JOBS,
     maxConcurrentGenerate: MAX_CONCURRENT_GENERATE,
@@ -232,6 +261,7 @@ async function startWorker() {
 async function stopWorker() {
   if (!loopPromise) return;
   stopping = true;
+  cancelStartDelay?.();
   if (expiryTimer) {
     clearInterval(expiryTimer);
     expiryTimer = null;

@@ -50,4 +50,15 @@ router.put(
   userController.deactivateUser,
 );
 
+// Status codes each route answers, besides the ones every authenticated route
+// can (see src/routes/environments.js).
+router.statusCodes = {
+  "GET /me": [200],
+  "PUT /me/profile": [200, 400, 404],
+  "GET /me/preferences": [200, 404],
+  "PUT /me/preferences": [200, 400, 404],
+  "GET /": [200],
+  "PUT /:userId/deactivate": [200, 400, 404],
+};
+
 module.exports = router;

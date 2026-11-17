@@ -20,4 +20,12 @@ router.get("/:jobId", authenticateToken, jobController.getJob);
 
 router.get("/:jobId/download", authenticateToken, jobController.downloadJobArtifact);
 
+// Status codes each route answers, besides the ones every authenticated route
+// can (see src/routes/environments.js). The polling limiter above answers 429
+// before a route matches, so those requests are counted as "unmatched".
+router.statusCodes = {
+  "GET /:jobId": [200, 404],
+  "GET /:jobId/download": [200, 400, 404, 409],
+};
+
 module.exports = router;

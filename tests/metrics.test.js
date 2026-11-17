@@ -14,7 +14,7 @@ jest.mock("@aws-sdk/client-bedrock-runtime", () => ({
 }));
 
 const app = require("../src/server");
-const { httpMetrics } = require("../src/middleware/httpMetrics");
+const { httpMetrics, createRouteSeries } = require("../src/middleware/httpMetrics");
 const { register, startMetricsServer, stopMetricsServer } = require("../src/utils/metrics");
 const { executeJob, startWorker, stopWorker } = require("../src/services/jobProcessor");
 const { streamChat } = require("../src/services/aiService");
@@ -191,6 +191,106 @@ describe("Metrics", () => {
     });
   });
 
+  // Series created at startup (OP-176 review): a labelled series otherwise
+  // appears with its first request, already at 1, and increase() never sees it.
+  describe("route series created at startup", () => {
+    const { mounts } = require("../src/routes");
+
+    // Every series of a metric, as "METHOD route status" strings.
+    async function seriesOf(name, metricName = name) {
+      const { values } = await register.getSingleMetric(name).get();
+      return values
+        .filter((v) => (v.metricName || name) === metricName)
+        .map((v) => `${v.labels.method} ${v.labels.route} ${v.labels.status_code}`);
+    }
+
+    it("lists the status codes of every registered route, and no route that is gone", () => {
+      for (const [mountPath, router] of Object.entries(mounts)) {
+        const registered = router.stack
+          .filter((layer) => layer.route)
+          .flatMap((layer) =>
+            Object.keys(layer.route.methods).map((m) => `${m.toUpperCase()} ${layer.route.path}`),
+          );
+        expect({ mountPath, routes: Object.keys(router.statusCodes || {}).sort() }).toEqual({
+          mountPath,
+          routes: [...registered].sort(),
+        });
+      }
+    });
+
+    it("creates each route's series at zero, for its own codes and the auth codes", async () => {
+      createRouteSeries("/api", mounts);
+
+      const counters = await seriesOf("http_requests_total");
+      expect(counters).toEqual(
+        expect.arrayContaining([
+          "POST /api/environments/:id/generate 202",
+          "POST /api/environments/:id/generate 500",
+          "POST /api/environments/:id/generate 401",
+          "GET /api/environments 200",
+          "GET /api/catalog 502",
+          "POST /api/ai/chat 200",
+        ]),
+      );
+      expect(counters.some((s) => s.includes("unmatched"))).toBe(false);
+      // Every route gets the abandoned-request code, every GET the revalidation
+      // code, and the job routes the per-repository lock's 409.
+      const routesAndMethods = new Set(counters.map((s) => s.split(" ").slice(0, 2).join(" ")));
+      for (const routeAndMethod of routesAndMethods) {
+        expect(counters).toContain(`${routeAndMethod} 499`);
+        if (routeAndMethod.startsWith("GET ")) expect(counters).toContain(`${routeAndMethod} 304`);
+      }
+      expect(counters).toEqual(
+        expect.arrayContaining([
+          "POST /api/environments/:id/push 409",
+          "POST /api/environments/:id/generate 409",
+          "POST /api/environments/terraform-backend/create 409",
+        ]),
+      );
+      const { values } = await register.getSingleMetric("http_requests_total").get();
+      expect(values.every((v) => v.value === 0)).toBe(true);
+      // The histogram has the same series, with every bucket at zero.
+      expect(
+        await seriesOf("http_request_duration_seconds", "http_request_duration_seconds_count"),
+      ).toEqual(counters);
+    });
+
+    it("gives the series exactly the labels the middleware records", async () => {
+      createRouteSeries("/api", mounts);
+      const before = await seriesOf("http_requests_total");
+
+      // Real requests through the app (auth and services are mocked in setup.js).
+      await request(app).post("/api/environments/abc/generate");
+      await request(app).get("/api/users/me");
+      // A browser revalidating with the ETag it got: 304.
+      const first = await request(app).get("/api/environments");
+      await request(app)
+        .get("/api/environments")
+        .set("If-None-Match", first.headers.etag)
+        .expect(304);
+
+      // No new series: each request landed on one created at startup, which
+      // also means the route answered with a code its statusCodes list.
+      expect(await seriesOf("http_requests_total")).toEqual(before);
+      const { values } = await register.getSingleMetric("http_requests_total").get();
+      expect(values.reduce((sum, v) => sum + v.value, 0)).toBe(4);
+    });
+
+    it("is wired into the app: loading the server creates the series", async () => {
+      // beforeEach resets the shared registry, so load a fresh copy of the app.
+      let fresh;
+      jest.isolateModules(() => {
+        require("../src/server");
+        fresh = require("../src/utils/metrics").register;
+      });
+
+      const { values } = await fresh.getSingleMetric("http_requests_total").get();
+      expect(
+        values.map((v) => `${v.labels.method} ${v.labels.route} ${v.labels.status_code}`),
+      ).toEqual(expect.arrayContaining(["POST /api/environments/:id/generate 202"]));
+    });
+  });
+
   describe("metrics listener", () => {
     afterEach(async () => {
       delete process.env.METRICS_PORT;
@@ -313,6 +413,39 @@ describe("Metrics", () => {
       const { values } = await register.getSingleMetric("openprime_jobs_total").get();
       expect(values).toHaveLength(6);
       expect(values.every((v) => v.value === 0)).toBe(true);
+      // The duration histogram too, so a first job shows in the duration panels.
+      const durations = await register.getSingleMetric("openprime_job_duration_seconds").get();
+      const counts = durations.values.filter(
+        (v) => v.metricName === "openprime_job_duration_seconds_count",
+      );
+      expect(counts).toHaveLength(6);
+      expect(durations.values.every((v) => v.value === 0)).toBe(true);
+    });
+
+    it("waits before the first claim, so Prometheus scrapes the zeroed series first", async () => {
+      jest.useFakeTimers();
+      process.env.JOB_START_DELAY_MS = "45000";
+      try {
+        // startWorker runs once per module, so load a fresh copy of the worker.
+        let worker;
+        let jobs;
+        jest.isolateModules(() => {
+          worker = require("../src/services/jobProcessor");
+          jobs = require("../src/services/jobService");
+        });
+        jobs.claimNextJob.mockResolvedValue(null);
+
+        await worker.startWorker();
+        await jest.advanceTimersByTimeAsync(44_000);
+        expect(jobs.claimNextJob).not.toHaveBeenCalled();
+        await jest.advanceTimersByTimeAsync(2_000);
+        expect(jobs.claimNextJob).toHaveBeenCalled();
+
+        await worker.stopWorker();
+      } finally {
+        delete process.env.JOB_START_DELAY_MS;
+        jest.useRealTimers();
+      }
     });
 
     it("counts a transient failure with attempts left as retried", async () => {
@@ -364,6 +497,26 @@ describe("Metrics", () => {
 
     const throttle = () =>
       Object.assign(new Error("Rate exceeded"), { name: "ThrottlingException" });
+
+    it("creates every call and duration series at zero when the service loads", async () => {
+      // beforeEach resets the shared registry, so load a fresh copy of both modules.
+      let fresh;
+      jest.isolateModules(() => {
+        require("../src/services/aiService");
+        fresh = require("../src/utils/metrics").register;
+      });
+
+      const calls = await fresh.getSingleMetric("openprime_bedrock_requests_total").get();
+      const durations = await fresh
+        .getSingleMetric("openprime_bedrock_request_duration_seconds")
+        .get();
+      const counts = durations.values.filter(
+        (v) => v.metricName === "openprime_bedrock_request_duration_seconds_count",
+      );
+      expect(calls.values).toHaveLength(6);
+      expect(counts).toHaveLength(6);
+      expect([...calls.values, ...durations.values].every((v) => v.value === 0)).toBe(true);
+    });
 
     // aiService reports retries and fallbacks on the console; keep test output clean.
     beforeEach(() => {
