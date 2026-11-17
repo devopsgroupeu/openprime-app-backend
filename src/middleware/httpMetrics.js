@@ -5,6 +5,68 @@ const { httpRequestsTotal, httpRequestDurationSeconds } = require("../utils/metr
 // dominate the request rate and hide real user traffic, so it is not counted.
 const EXCLUDED_PATHS = new Set(["/health", "/ready"]);
 
+// What every route can answer besides its own codes. Every route is
+// authenticated: no or bad token (401), deactivated account or missing role
+// (403), the per-user budget (429), an unexpected error (500) and Keycloak's
+// keys not loaded yet (503); see src/middleware/auth.js and errorHandler.js.
+// 499 is recorded below for a request the client abandons.
+const COMMON_ROUTE_CODES = [401, 403, 429, 499, 500, 503];
+
+// A GET answers 304 when the browser revalidates with the ETag Express sets.
+const GET_ROUTE_CODES = [304];
+
+// The route label for a route `path` matched under the mount path `baseUrl`.
+// Shared by the middleware and createRouteSeries so both produce the same
+// label. baseUrl is lowercased: see the note on httpMetrics below.
+function routeLabel(baseUrl, path) {
+  const base = baseUrl.toLowerCase();
+  return path === "/" && base ? base : `${base}${path}`;
+}
+
+/**
+ * Create the request series of every registered route at zero.
+ *
+ * A labelled series otherwise appears with its first request, already at 1,
+ * so increase() and rate() never see that request: with a quiet API and pods
+ * replaced every few hours, most requests were a first one. Each route file
+ * lists the status codes its routes answer (`statusCodes`, keyed
+ * "METHOD /path"); COMMON_ROUTE_CODES are added to every route and
+ * GET_ROUTE_CODES to every GET. HEAD requests (Express answers them with the
+ * GET handler) are not created: browsers never send them to this API, and
+ * they would add about half as many series again.
+ *
+ * The counter is created for every code, the duration histogram (16 series
+ * per label set) only for the codes below 400. Latency panels aggregate over
+ * status_code, so an error's first duration sample is all that is lost, and
+ * creating the histogram for every code would make some 4,000 series per pod,
+ * nearly all of them zero for good.
+ *
+ * @param {string} prefix - mount path of the API router ("/api")
+ * @param {Object<string, import("express").Router>} mounts - mount path -> router
+ */
+function createRouteSeries(prefix, mounts) {
+  for (const [mountPath, router] of Object.entries(mounts)) {
+    const codes = router.statusCodes || {};
+    for (const { route } of router.stack) {
+      if (!route) continue; // middleware, not a route
+      for (const method of Object.keys(route.methods)) {
+        const METHOD = method.toUpperCase();
+        const own = codes[`${METHOD} ${route.path}`] || [200];
+        const extra = METHOD === "GET" ? GET_ROUTE_CODES : [];
+        for (const statusCode of new Set([...own, ...extra, ...COMMON_ROUTE_CODES])) {
+          const labels = {
+            method: METHOD,
+            route: routeLabel(`${prefix}${mountPath}`, route.path),
+            status_code: String(statusCode),
+          };
+          httpRequestsTotal.inc(labels, 0);
+          if (statusCode < 400) httpRequestDurationSeconds.zero(labels);
+        }
+      }
+    }
+  }
+}
+
 /**
  * Record RED metrics (rate, errors, duration) for every request.
  *
@@ -32,7 +94,7 @@ function httpMetrics(req, res, next) {
 
   const endTimer = httpRequestDurationSeconds.startTimer();
   let matchedRoute;
-  let routeLabel = "unmatched";
+  let label = "unmatched";
 
   Object.defineProperty(req, "route", {
     configurable: true,
@@ -41,9 +103,7 @@ function httpMetrics(req, res, next) {
     set: (route) => {
       matchedRoute = route;
       if (!route) return;
-      const path = String(route.path);
-      const base = req.baseUrl.toLowerCase();
-      routeLabel = path === "/" && base ? base : `${base}${path}`;
+      label = routeLabel(req.baseUrl, String(route.path));
     },
   });
 
@@ -51,7 +111,7 @@ function httpMetrics(req, res, next) {
   // the connection drops first.
   res.once("close", () => {
     const statusCode = res.writableFinished ? String(res.statusCode) : "499";
-    const labels = { method: req.method, route: routeLabel, status_code: statusCode };
+    const labels = { method: req.method, route: label, status_code: statusCode };
     httpRequestsTotal.inc(labels);
     endTimer(labels);
   });
@@ -59,4 +119,4 @@ function httpMetrics(req, res, next) {
   next();
 }
 
-module.exports = { httpMetrics };
+module.exports = { httpMetrics, createRouteSeries };

@@ -187,6 +187,9 @@ app:
     JOB_DEADLINE_MS: "600000"
     JOB_RETENTION_DAYS: "30"
     JOB_DRAIN_TIMEOUT_MS: "30000"
+    # The worker waits this long after start before its first claim, so
+    # Prometheus scrapes the job metrics at zero before a job moves them.
+    JOB_START_DELAY_MS: "45000"
     UPLOADS_DIR: "/app/uploads"
 
   # Secrets (should be provided via external secret management)
