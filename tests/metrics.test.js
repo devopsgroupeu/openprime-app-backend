@@ -243,16 +243,20 @@ describe("Metrics", () => {
       expect(counters).toEqual(
         expect.arrayContaining([
           "POST /api/environments/:id/push 409",
+          "POST /api/environments/:id/push 422",
           "POST /api/environments/:id/generate 409",
           "POST /api/environments/terraform-backend/create 409",
         ]),
       );
       const { values } = await register.getSingleMetric("http_requests_total").get();
       expect(values.every((v) => v.value === 0)).toBe(true);
-      // The histogram has the same series, with every bucket at zero.
+      // The histogram has the series of the codes below 400 only, with every
+      // bucket at zero: the error codes would multiply its series for nothing.
       expect(
         await seriesOf("http_request_duration_seconds", "http_request_duration_seconds_count"),
-      ).toEqual(counters);
+      ).toEqual(counters.filter((s) => Number(s.split(" ")[2]) < 400));
+      const durations = await register.getSingleMetric("http_request_duration_seconds").get();
+      expect(durations.values.every((v) => v.value === 0)).toBe(true);
     });
 
     it("gives the series exactly the labels the middleware records", async () => {
@@ -447,6 +451,57 @@ describe("Metrics", () => {
         jest.useRealTimers();
       }
     });
+
+    it("stops during the start delay without ever claiming a job", async () => {
+      jest.useFakeTimers();
+      process.env.JOB_START_DELAY_MS = "45000";
+      try {
+        let worker;
+        let jobs;
+        jest.isolateModules(() => {
+          worker = require("../src/services/jobProcessor");
+          jobs = require("../src/services/jobService");
+        });
+        jobs.claimNextJob.mockResolvedValue(null);
+
+        await worker.startWorker();
+        await jest.advanceTimersByTimeAsync(10_000);
+        await worker.stopWorker();
+        // Past stopWorker's drain timeout (30 s), but short of the 45 s delay:
+        // with the delay cut short, no timer of the worker is left.
+        await jest.advanceTimersByTimeAsync(30_000);
+        expect(jest.getTimerCount()).toBe(0);
+        expect(jobs.claimNextJob).not.toHaveBeenCalled();
+      } finally {
+        delete process.env.JOB_START_DELAY_MS;
+        jest.useRealTimers();
+      }
+    });
+
+    it.each(["abc", "-1", "1.5", "99999999999"])(
+      "falls back to the default start delay for JOB_START_DELAY_MS=%s",
+      async (value) => {
+        jest.useFakeTimers();
+        process.env.JOB_START_DELAY_MS = value;
+        try {
+          let worker;
+          let jobs;
+          jest.isolateModules(() => {
+            worker = require("../src/services/jobProcessor");
+            jobs = require("../src/services/jobService");
+          });
+          jobs.claimNextJob.mockResolvedValue(null);
+
+          await worker.startWorker();
+          await jest.advanceTimersByTimeAsync(44_000);
+          expect(jobs.claimNextJob).not.toHaveBeenCalled();
+          await worker.stopWorker();
+        } finally {
+          delete process.env.JOB_START_DELAY_MS;
+          jest.useRealTimers();
+        }
+      },
+    );
 
     it("counts a transient failure with attempts left as retried", async () => {
       environmentService.generateInfrastructure.mockRejectedValueOnce(

@@ -130,8 +130,8 @@ app.get("/ready", async (req, res) => {
 // API routes
 const API_PREFIX = "/api";
 app.use(API_PREFIX, routes);
-// Every route's request series at zero, so the first request after a restart
-// shows up in increase() and rate() (src/middleware/httpMetrics.js)
+// Every route's request series at zero, so they exist from the start
+// (src/middleware/httpMetrics.js)
 createRouteSeries(API_PREFIX, routes.mounts);
 
 // Error handling

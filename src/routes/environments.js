@@ -27,11 +27,12 @@ router.post(
 
 // Status codes each route answers, besides the ones every route can
 // (COMMON_ROUTE_CODES and, for a GET, GET_ROUTE_CODES in
-// src/middleware/httpMetrics.js). Their metric series are created at startup,
-// so the first request after a restart is counted. tests/metrics.test.js fails
-// when a route is missing here. Generate and push answer 202 with a job
+// src/middleware/httpMetrics.js). Their metric series are created at startup
+// (createRouteSeries). tests/metrics.test.js fails when a route is missing
+// here. Generate and push answer 202 with a job
 // (X-Async-Jobs), 200 when run inline, and 409 while another push to the same
-// repository holds its lock; terraform-backend passes on StateCraft's 409.
+// repository holds its lock; inline, both answer 422 when Injecto refuses the
+// generated files. terraform-backend passes on StateCraft's 409.
 router.statusCodes = {
   "GET /": [200],
   "GET /:id": [200, 404],
@@ -39,7 +40,7 @@ router.statusCodes = {
   "PUT /:id": [200, 400, 404],
   "DELETE /:id": [200, 404],
   "POST /:id/generate": [200, 202, 404, 409, 422],
-  "POST /:id/push": [200, 202, 400, 404, 409],
+  "POST /:id/push": [200, 202, 400, 404, 409, 422],
   "POST /terraform-backend/create": [201, 400, 404, 409],
 };
 

@@ -32,11 +32,17 @@ const DRAIN_TIMEOUT_MS = parseInt(process.env.JOB_DRAIN_TIMEOUT_MS || "30000", 1
 // before the new pod's first scrape would be lost to increase() and the
 // duration panels, and pods are replaced every few hours, often with a job
 // waiting. 45 s covers the chart's 30 s scrape interval plus discovering the
-// new pod. No wait when metrics are off: nothing would be lost.
-const START_DELAY_MS =
-  process.env.METRICS_ENABLED === "false"
-    ? 0
-    : parseInt(process.env.JOB_START_DELAY_MS || "45000", 10);
+// new pod. No wait when metrics are off: nothing would be lost. A value that
+// is not a whole number of milliseconds, or is above setTimeout's 2^31 - 1,
+// would make setTimeout fire at once, so it falls back to the default; the
+// value in use is logged when the worker starts.
+const DEFAULT_START_DELAY_MS = 45000;
+function startDelayMs() {
+  if (process.env.METRICS_ENABLED === "false") return 0;
+  const ms = Number(process.env.JOB_START_DELAY_MS || DEFAULT_START_DELAY_MS);
+  return Number.isInteger(ms) && ms >= 0 && ms <= 2 ** 31 - 1 ? ms : DEFAULT_START_DELAY_MS;
+}
+const START_DELAY_MS = startDelayMs();
 
 let stopping = false;
 let loopPromise = null;

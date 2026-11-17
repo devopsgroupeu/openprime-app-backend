@@ -35,6 +35,12 @@ function routeLabel(baseUrl, path) {
  * GET handler) are not created: browsers never send them to this API, and
  * they would add about half as many series again.
  *
+ * The counter is created for every code, the duration histogram (16 series
+ * per label set) only for the codes below 400. Latency panels aggregate over
+ * status_code, so an error's first duration sample is all that is lost, and
+ * creating the histogram for every code would make some 4,000 series per pod,
+ * nearly all of them zero for good.
+ *
  * @param {string} prefix - mount path of the API router ("/api")
  * @param {Object<string, import("express").Router>} mounts - mount path -> router
  */
@@ -54,7 +60,7 @@ function createRouteSeries(prefix, mounts) {
             status_code: String(statusCode),
           };
           httpRequestsTotal.inc(labels, 0);
-          httpRequestDurationSeconds.zero(labels);
+          if (statusCode < 400) httpRequestDurationSeconds.zero(labels);
         }
       }
     }
