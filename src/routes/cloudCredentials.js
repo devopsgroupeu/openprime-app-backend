@@ -92,4 +92,18 @@ router.put(
   cloudCredentialController.setDefaultCredential,
 );
 
+// Status codes each route answers, besides the ones every authenticated route
+// can (see src/routes/environments.js). 400 is the validation above, 404 an
+// unknown user or credential, 409 a duplicate name.
+router.statusCodes = {
+  "POST /": [201, 400, 404, 409],
+  "GET /": [200, 400, 404],
+  "GET /:credentialId": [200, 400, 404],
+  "PUT /:credentialId": [200, 400, 404],
+  "DELETE /:credentialId": [200, 400, 404],
+  "POST /:credentialId/test": [200, 400, 404],
+  "GET /:credentialId/usage": [200, 400, 404],
+  "PUT /:credentialId/default": [200, 400, 404],
+};
+
 module.exports = router;

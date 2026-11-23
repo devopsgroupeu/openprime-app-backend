@@ -176,6 +176,21 @@ The backend decides what reaches the model, whatever the client sends. Client `s
 Default Node.js process metrics (CPU, memory, event loop lag, GC) are included. The HTTP metric
 names and labels match Injecto and StateCraft, so one query works across all three services.
 
+Every series is created at zero when the process starts. A labelled series otherwise appears with
+its first event, already at 1, and `increase()`/`rate()` never see that event; with little traffic
+and pods replaced every few hours, that loses most events. The HTTP series are created for each
+registered route with the status codes it answers: each file in `src/routes/` lists them in
+`router.statusCodes`, every route also gets the auth codes and `499`, every GET `304`, and the
+metrics tests fail when a route is missing there. The request counter is created for every code,
+the duration histogram only for codes below 400. Requests no route matched (scanners, CORS
+preflights, the per-IP rate limit) keep the single label `unmatched`.
+
+A series created at zero still has to be scraped once before the first event moves it. The job
+worker waits `JOB_START_DELAY_MS` (default 45 s, none with metrics off) before its first claim, so
+Prometheus scrapes the zeroed job series before a job that was waiting during a restart moves them.
+The API does not wait: a request or Bedrock call in the seconds between the pod turning Ready and
+its first scrape can still be missed by `increase()`.
+
 ### Grafana dashboards
 
 The OpenPrime dashboards (Overview, Backend API, Jobs & AI) are not part of this chart: they are

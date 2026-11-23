@@ -17,11 +17,13 @@ const client = new BedrockRuntimeClient({
 const MODEL_ID = process.env.BEDROCK_INFERENCE_PROFILE_ARN;
 
 // Create every outcome series at zero, so the first call after a restart is
-// visible to increase()/rate() rather than starting a brand-new series.
+// visible to increase()/rate() rather than starting a brand-new series. The
+// duration histogram too, or the latency panel misses every first call.
 for (const operation of ["ConverseStream", "Converse"]) {
   bedrockThrottlesTotal.inc({ operation }, 0);
   for (const outcome of ["success", "throttled", "error"]) {
     bedrockRequestsTotal.inc({ operation, outcome }, 0);
+    bedrockRequestDurationSeconds.zero({ operation, outcome });
   }
 }
 

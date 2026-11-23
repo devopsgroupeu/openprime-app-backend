@@ -9,11 +9,22 @@ const cloudCredentialsRoutes = require("./cloudCredentials");
 const jobRoutes = require("./jobs");
 const catalogRoutes = require("./catalog");
 
-router.use("/ai", aiRoutes);
-router.use("/environments", environmentRoutes);
-router.use("/users", userRoutes);
-router.use("/cloud-credentials", cloudCredentialsRoutes);
-router.use("/jobs", jobRoutes);
-router.use("/catalog", catalogRoutes);
+// Mount path -> router. Exported so the HTTP metrics can create every route's
+// series at startup (createRouteSeries in src/middleware/httpMetrics.js); a
+// router mounted here is covered without further changes. Mount paths must
+// stay lowercase literals (see the httpMetrics middleware).
+const mounts = {
+  "/ai": aiRoutes,
+  "/environments": environmentRoutes,
+  "/users": userRoutes,
+  "/cloud-credentials": cloudCredentialsRoutes,
+  "/jobs": jobRoutes,
+  "/catalog": catalogRoutes,
+};
+
+for (const [path, mounted] of Object.entries(mounts)) {
+  router.use(path, mounted);
+}
 
 module.exports = router;
+module.exports.mounts = mounts;

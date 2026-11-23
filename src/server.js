@@ -8,7 +8,7 @@ require("dotenv").config();
 
 const { errorHandler } = require("./middleware/errorHandler");
 const { requestLogger } = require("./middleware/requestLogger");
-const { httpMetrics } = require("./middleware/httpMetrics");
+const { httpMetrics, createRouteSeries } = require("./middleware/httpMetrics");
 const { logger } = require("./utils/logger");
 const { startMetricsServer } = require("./utils/metrics");
 const routes = require("./routes");
@@ -128,7 +128,11 @@ app.get("/ready", async (req, res) => {
 });
 
 // API routes
-app.use("/api", routes);
+const API_PREFIX = "/api";
+app.use(API_PREFIX, routes);
+// Every route's request series at zero, so they exist from the start
+// (src/middleware/httpMetrics.js)
+createRouteSeries(API_PREFIX, routes.mounts);
 
 // Error handling
 app.use(errorHandler);

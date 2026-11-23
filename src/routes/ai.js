@@ -24,4 +24,11 @@ const aiChatLimits = [
 
 router.post("/chat", authenticateToken, aiChatLimits, chat);
 
+// Status codes each route answers, besides the ones every authenticated route
+// can (see src/routes/environments.js). A Bedrock failure is still a 200: the
+// stream carries the "couldn't connect" message.
+router.statusCodes = {
+  "POST /chat": [200, 400],
+};
+
 module.exports = router;
