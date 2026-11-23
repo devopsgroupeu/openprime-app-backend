@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.21.24](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.21.23...v1.21.24) (2026-11-23)
+
+### 🐛 Bug Fixes
+
+* **metrics:** create route, job and Bedrock series at startup (OP-176) ([#86](https://github.com/devopsgroupeu/openprime-app-backend/issues/86)) ([9ed3658](https://github.com/devopsgroupeu/openprime-app-backend/commit/9ed3658fd6a026cb1c1dc128d057dfb5a2e6bceb))
+
 ## [1.21.23](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.21.22...v1.21.23) (2026-11-13)
 
 ### 🏗️ Build System
