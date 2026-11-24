@@ -37,6 +37,12 @@ router.put(
     body("defaultRegion").optional().isString().trim(),
     body("gitIntegration.platform").optional().isString().trim().isLength({ max: 50 }),
     body("gitIntegration.orgUrl").optional().isString().trim().isLength({ max: 2048 }),
+    // The setup guide's own state: the two ticks the app cannot see for itself
+    // and whether the guide is collapsed. Preferences merge one level deep, so
+    // the app always sends the whole object.
+    body("onboarding.ownRepo").optional().isBoolean(),
+    body("onboarding.deployed").optional().isBoolean(),
+    body("onboarding.collapsed").optional().isBoolean(),
   ],
   userController.updatePreferences,
 );
