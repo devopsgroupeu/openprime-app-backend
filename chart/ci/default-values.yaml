@@ -5,5 +5,3 @@ app:
   env:
     STATECRAFT_SERVICE_URL: "http://statecraft:80"
   existingSecret: ci-backend-secrets
-podSecurityContext:
-  runAsUser: "abc"
