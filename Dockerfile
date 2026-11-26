@@ -33,8 +33,7 @@ RUN apk add --no-cache git openssh
 # directly), and its bundled undici and brace-expansion are what Trivy flags in
 # the image.
 RUN npm ci --omit=dev \
- && npm cache clean --force \
- && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx /root/.npm
+ && npm cache clean --force
 
 # Copy application files from builder stage. Code and node_modules stay
 # root-owned (read-only for the app user), so a compromised process cannot
