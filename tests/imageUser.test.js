@@ -15,9 +15,11 @@ const NODE_IMAGE_UID = 1000;
 
 const finalStage = dockerfile.split(/^FROM /m).pop();
 const userLine = finalStage.match(/^USER\s+(\S+)\s*$/m);
+// USER is `<user>` or `<user>:<group>` (OP-191 made it numeric `1000:1000`).
+const imageUser = userLine && userLine[1].split(":")[0];
 const imageUid =
   userLine &&
-  (/^\d+$/.test(userLine[1]) ? Number(userLine[1]) : userLine[1] === "node" ? NODE_IMAGE_UID : NaN);
+  (/^\d+$/.test(imageUser) ? Number(imageUser) : imageUser === "node" ? NODE_IMAGE_UID : NaN);
 
 describe("image user matches the chart's securityContext", () => {
   it("the final stage runs as a known uid", () => {
@@ -41,7 +43,7 @@ describe("image user matches the chart's securityContext", () => {
 
     expect(chowns.length).toBeGreaterThan(0);
     for (const owner of chowns) {
-      expect(owner).toBe(userLine[1]);
+      expect(owner).toBe(imageUser);
     }
   });
 });

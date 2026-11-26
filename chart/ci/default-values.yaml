@@ -1,0 +1,7 @@
+# CI only (helm lint + kubeconform). The chart refuses to render without
+# STATECRAFT_SERVICE_URL, DB_PASSWORD, CREDENTIALS_ENCRYPTION_KEY and
+# SERVICE_TOKEN; the secrets come from a Secret nobody reads at render time.
+app:
+  env:
+    STATECRAFT_SERVICE_URL: "http://statecraft:80"
+  existingSecret: ci-backend-secrets
