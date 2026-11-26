@@ -1,0 +1,28 @@
+# CI only: every optional template switched on, so kubeconform validates all
+# of them. Secrets come from app.secrets (dummy values) so that secret.yaml and
+# migration-secret.yaml render too; the default file covers existingSecret.
+app:
+  env:
+    STATECRAFT_SERVICE_URL: "http://statecraft:80"
+  secrets:
+    DB_PASSWORD: ci-not-a-secret
+    CREDENTIALS_ENCRYPTION_KEY: "0000000000000000000000000000000000000000000000000000000000000000"
+    SERVICE_TOKEN: ci-not-a-secret
+service:
+  type: NodePort # renders metrics-service.yaml (only when the API Service is not ClusterIP)
+ingress:
+  enabled: true
+  className: nginx
+  tls:
+    - secretName: ci-api-tls
+      hosts:
+        - api.openprime.local
+autoscaling:
+  enabled: true
+networkPolicy:
+  enabled: true
+persistence:
+  uploads:
+    enabled: true
+  logs:
+    enabled: true

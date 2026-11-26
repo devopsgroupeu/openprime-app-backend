@@ -20,11 +20,19 @@ jobs:
   test:
     uses: ./.github/workflows/reusable-test.yml
 
+  scan:
+    name: Image scan
+    permissions:
+      contents: read
+      security-events: write
+    uses: ./.github/workflows/reusable-image-scan.yml
+
   publish-docker:
-    needs: test
+    needs: [test, scan]
     permissions:
       contents: read
       packages: write
+      id-token: write # caps the reusable workflow's permissions; needed for keyless cosign
     uses: ./.github/workflows/reusable-docker-publish.yml
     with:
       tags: |

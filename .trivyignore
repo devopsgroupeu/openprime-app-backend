@@ -1,0 +1,16 @@
+# Trivy ignore file, read automatically by `trivy fs` and `trivy image`
+# (CI: .github/workflows/reusable-image-scan.yml).
+#
+# Prefer fixing: bump the dependency (npm update / Dependabot), rebuild on a
+# newer base digest, or remove the package from the image. Ignore only what
+# cannot be fixed yet.
+#
+# Every entry needs, directly above it, a comment with:
+#   - why it is acceptable (e.g. code path not reachable, fix not usable yet)
+#   - the ticket that tracks removing the entry
+# and an expiry date on the entry itself, so it is looked at again:
+#
+#   # <package>: <why it is not exploitable here>. OP-xxx
+#   CVE-YYYY-NNNNN exp:YYYY-MM-DD
+#
+# No wildcards, no package-wide ignores, no entries without a CVE/GHSA id.

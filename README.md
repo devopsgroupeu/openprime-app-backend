@@ -245,6 +245,27 @@ openprime-backend/
 └── README.md
 ```
 
+## Supply chain
+
+Every image published to `ghcr.io/devopsgroupeu/openprime-app-backend` carries:
+
+- a **keyless [cosign](https://github.com/sigstore/cosign) signature**, made by the publish workflow with GitHub's OIDC identity (no long-lived signing key exists);
+- an **SBOM** (SPDX) and **build provenance**, attached to the image as attestations by BuildKit.
+
+Before a release is cut, CI builds the image from the same commit (linux/amd64) and scans it, together with the production dependencies in `package-lock.json`, with Trivy. A fixable HIGH or CRITICAL vulnerability stops the release. Pull requests run the same scan, plus CodeQL (`javascript-typescript`) and `helm lint --strict` + kubeconform on `chart/ci/*-values.yaml`. Dependencies are installed with `npm ci` from the committed lock file, the base image is pinned by digest, and all GitHub Actions are pinned to commit SHAs.
+
+The image runs as uid/gid 1000 with the application code root-owned, works with a read-only root filesystem (only `/tmp` must be writable), and contains no npm.
+
+### Verify the signature
+
+Use cosign v3.1.4 or newer (the publish workflow signs with v3.1.4):
+
+```bash
+cosign verify ghcr.io/devopsgroupeu/openprime-app-backend:<version> \
+  --certificate-identity "https://github.com/devopsgroupeu/openprime-app-backend/.github/workflows/reusable-docker-publish.yml@refs/heads/main" \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+```
+
 ## License
 
 Appache 2.0
