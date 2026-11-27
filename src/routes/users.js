@@ -37,6 +37,13 @@ router.put(
     body("defaultRegion").optional().isString().trim(),
     body("gitIntegration.platform").optional().isString().trim().isLength({ max: 50 }),
     body("gitIntegration.orgUrl").optional().isString().trim().isLength({ max: 2048 }),
+    // The setup guide's own state: what the app cannot see for itself (the
+    // repository the user created on GitHub, a deployment run there) and
+    // whether the guide is collapsed. Preferences merge one level deep, so the
+    // app always sends the whole object.
+    body("onboarding.repoUrl").optional().isString().trim().isLength({ max: 2048 }),
+    body("onboarding.deployed").optional().isBoolean(),
+    body("onboarding.collapsed").optional().isBoolean(),
   ],
   userController.updatePreferences,
 );

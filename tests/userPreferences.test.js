@@ -76,7 +76,31 @@ describe("PUT /api/users/me/preferences", () => {
     });
   });
 
+  // Exactly what the setup guide sends (openprime-app OnboardingContext.jsx).
+  it("stores the setup guide's state and drops unknown keys inside it", async () => {
+    const res = await put({
+      onboarding: {
+        repoUrl: "git@github.com:acme/infra.git",
+        deployed: false,
+        collapsed: true,
+        step: 3,
+      },
+    });
+
+    expect(res.status).toBe(200);
+    expect(userService.updateUserPreferences).toHaveBeenCalledWith(1, {
+      onboarding: {
+        repoUrl: "git@github.com:acme/infra.git",
+        deployed: false,
+        collapsed: true,
+      },
+    });
+  });
+
   it.each([
+    ["onboarding.repoUrl", { onboarding: { repoUrl: 42 } }],
+    ["onboarding.deployed", { onboarding: { deployed: "yes" } }],
+    ["onboarding.collapsed", { onboarding: { collapsed: { a: 1 } } }],
     ["theme", { theme: "blue" }],
     ["notifications", { notifications: "sometimes" }],
     ["defaultProvider", { defaultProvider: "digitalocean" }],
