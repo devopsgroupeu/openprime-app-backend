@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.22.0](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.21.25...v1.22.0) (2026-11-27)
+
+### 🚀 Features
+
+* **users:** store the setup guide's state in preferences (OP-283) ([#95](https://github.com/devopsgroupeu/openprime-app-backend/issues/95)) ([468c49b](https://github.com/devopsgroupeu/openprime-app-backend/commit/468c49bfd0569a528ba931785a64b9db06fa0fc9))
+
 ## [1.21.25](https://github.com/devopsgroupeu/openprime-app-backend/compare/v1.21.24...v1.21.25) (2026-11-23)
 
 ### 🏗️ Build System
